@@ -1,0 +1,6 @@
+{
+  "name": "Smart Choice Electronics Group",
+  "description": "Premium electronics, home appliances, and power solutions in Port Harcourt, Rivers State, Nigeria. Shop televisions, refrigerators, air conditioners, generators, inverters, and furniture with flexible Save to Buy installment plans.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

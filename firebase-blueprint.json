@@ -1,0 +1,251 @@
+{
+  "entities": {
+    "Product": {
+      "title": "Product",
+      "description": "Store electronics and home appliance product",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "name": { "type": "string", "maxLength": 200 },
+        "slug": { "type": "string", "maxLength": 200 },
+        "categoryId": { "type": "string", "maxLength": 100 },
+        "categoryName": { "type": "string", "maxLength": 100 },
+        "brand": { "type": "string", "maxLength": 100 },
+        "model": { "type": "string", "maxLength": 100 },
+        "price": { "type": "number" },
+        "originalPrice": { "type": "number" },
+        "stock": { "type": "number" },
+        "inStock": { "type": "boolean" },
+        "featured": { "type": "boolean" },
+        "isBestSeller": { "type": "boolean" },
+        "isNewArrival": { "type": "boolean" },
+        "isDeal": { "type": "boolean" },
+        "discountPercent": { "type": "number" },
+        "description": { "type": "string", "maxLength": 5000 },
+        "specifications": { "type": "object" },
+        "warranty": { "type": "string", "maxLength": 200 },
+        "images": { "type": "array" },
+        "createdAt": { "type": "string" },
+        "updatedAt": { "type": "string" }
+      },
+      "required": ["name", "categoryId", "price", "stock", "inStock"]
+    },
+    "Category": {
+      "title": "Category",
+      "description": "Product category",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "name": { "type": "string", "maxLength": 100 },
+        "slug": { "type": "string", "maxLength": 100 },
+        "image": { "type": "string", "maxLength": 1000 },
+        "displayOnHome": { "type": "boolean" },
+        "sortOrder": { "type": "number" },
+        "createdAt": { "type": "string" }
+      },
+      "required": ["name", "slug"]
+    },
+    "Slide": {
+      "title": "Slide",
+      "description": "Homepage slideshow item",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "title": { "type": "string", "maxLength": 200 },
+        "subtitle": { "type": "string", "maxLength": 300 },
+        "badge": { "type": "string", "maxLength": 100 },
+        "image": { "type": "string", "maxLength": 1000 },
+        "link": { "type": "string", "maxLength": 500 },
+        "buttonText": { "type": "string", "maxLength": 100 },
+        "sortOrder": { "type": "number" },
+        "isActive": { "type": "boolean" }
+      },
+      "required": ["title", "image"]
+    },
+    "Order": {
+      "title": "Order",
+      "description": "Customer purchase order",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "orderRef": { "type": "string", "maxLength": 64 },
+        "customerId": { "type": "string", "maxLength": 128 },
+        "customerName": { "type": "string", "maxLength": 200 },
+        "customerEmail": { "type": "string", "maxLength": 200 },
+        "customerPhone": { "type": "string", "maxLength": 50 },
+        "items": { "type": "array" },
+        "subtotal": { "type": "number" },
+        "deliveryFee": { "type": "number" },
+        "totalAmount": { "type": "number" },
+        "paymentMethod": { "type": "string", "enum": ["bank_transfer", "save_to_buy", "klump"] },
+        "paymentStatus": { "type": "string", "enum": ["pending", "verified", "rejected", "failed"] },
+        "orderStatus": { "type": "string", "enum": ["received", "payment_pending", "payment_confirmed", "processing", "preparing", "ready_for_pickup", "dispatched", "out_for_delivery", "delivered", "cancelled"] },
+        "fulfillmentType": { "type": "string", "enum": ["pickup", "delivery"] },
+        "pickupShowroom": { "type": "string", "maxLength": 100 },
+        "deliveryAddress": { "type": "object" },
+        "receiptUrl": { "type": "string", "maxLength": 2000 },
+        "receiptFileName": { "type": "string", "maxLength": 200 },
+        "notes": { "type": "string", "maxLength": 1000 },
+        "timeline": { "type": "array" },
+        "createdAt": { "type": "string" },
+        "updatedAt": { "type": "string" }
+      },
+      "required": ["orderRef", "totalAmount", "paymentMethod", "fulfillmentType"]
+    },
+    "SaveToBuyPlan": {
+      "title": "SaveToBuyPlan",
+      "description": "Installment savings plan for a customer",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "planRef": { "type": "string", "maxLength": 64 },
+        "customerId": { "type": "string", "maxLength": 128 },
+        "customerName": { "type": "string", "maxLength": 200 },
+        "customerEmail": { "type": "string", "maxLength": 200 },
+        "customerPhone": { "type": "string", "maxLength": 50 },
+        "productId": { "type": "string", "maxLength": 100 },
+        "productName": { "type": "string", "maxLength": 200 },
+        "productPrice": { "type": "number" },
+        "productImage": { "type": "string", "maxLength": 1000 },
+        "durationMonths": { "type": "number", "enum": [1, 2, 3, 4] },
+        "interestRatePercent": { "type": "number", "enum": [3, 5, 7] },
+        "interestAmount": { "type": "number" },
+        "totalPayable": { "type": "number" },
+        "amountPaid": { "type": "number" },
+        "balance": { "type": "number" },
+        "paymentFrequency": { "type": "string", "enum": ["weekly", "monthly"] },
+        "installmentAmount": { "type": "number" },
+        "totalInstallments": { "type": "number" },
+        "installmentsSchedule": { "type": "array" },
+        "fulfillmentType": { "type": "string", "enum": ["pickup", "delivery"] },
+        "pickupShowroom": { "type": "string", "maxLength": 100 },
+        "deliveryAddress": { "type": "object" },
+        "status": { "type": "string", "enum": ["awaiting_first_payment", "active", "payment_due", "overdue", "completed", "cancelled"] },
+        "productReleased": { "type": "boolean" },
+        "releasedAt": { "type": "string" },
+        "createdAt": { "type": "string" },
+        "updatedAt": { "type": "string" }
+      },
+      "required": ["planRef", "productPrice", "durationMonths", "totalPayable", "status"]
+    },
+    "PaymentReceipt": {
+      "title": "PaymentReceipt",
+      "description": "Payment receipt for bank transfer or Save to Buy installment",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "paymentRef": { "type": "string", "maxLength": 64 },
+        "type": { "type": "string", "enum": ["order_payment", "save_to_buy_installment"] },
+        "orderId": { "type": "string", "maxLength": 100 },
+        "planId": { "type": "string", "maxLength": 100 },
+        "customerId": { "type": "string", "maxLength": 128 },
+        "customerName": { "type": "string", "maxLength": 200 },
+        "amount": { "type": "number" },
+        "bankName": { "type": "string", "maxLength": 100 },
+        "accountName": { "type": "string", "maxLength": 200 },
+        "accountNumber": { "type": "string", "maxLength": 50 },
+        "receiptUrl": { "type": "string", "maxLength": 2000 },
+        "receiptFileName": { "type": "string", "maxLength": 200 },
+        "status": { "type": "string", "enum": ["pending", "verified", "rejected"] },
+        "rejectionReason": { "type": "string", "maxLength": 500 },
+        "verifiedBy": { "type": "string", "maxLength": 100 },
+        "verifiedAt": { "type": "string" },
+        "createdAt": { "type": "string" }
+      },
+      "required": ["paymentRef", "type", "amount", "receiptUrl", "status"]
+    },
+    "KlumpTransaction": {
+      "title": "KlumpTransaction",
+      "description": "Klump BNPL transaction verification",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "reference": { "type": "string", "maxLength": 64 },
+        "klumpReference": { "type": "string", "maxLength": 100 },
+        "orderId": { "type": "string", "maxLength": 100 },
+        "customerId": { "type": "string", "maxLength": 128 },
+        "amount": { "type": "number" },
+        "status": { "type": "string", "enum": ["pending", "approved", "declined", "cancelled"] },
+        "createdAt": { "type": "string" }
+      },
+      "required": ["reference", "amount", "status"]
+    },
+    "ContactMessage": {
+      "title": "ContactMessage",
+      "description": "Customer contact form message",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "firstName": { "type": "string", "maxLength": 100 },
+        "lastName": { "type": "string", "maxLength": 100 },
+        "email": { "type": "string", "maxLength": 150 },
+        "phone": { "type": "string", "maxLength": 50 },
+        "message": { "type": "string", "maxLength": 3000 },
+        "showroom": { "type": "string", "maxLength": 100 },
+        "status": { "type": "string", "enum": ["new", "read", "resolved"] },
+        "createdAt": { "type": "string" }
+      },
+      "required": ["firstName", "email", "message"]
+    },
+    "UserProfile": {
+      "title": "UserProfile",
+      "description": "Registered customer profile",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string", "maxLength": 128 },
+        "fullName": { "type": "string", "maxLength": 200 },
+        "email": { "type": "string", "maxLength": 150 },
+        "phone": { "type": "string", "maxLength": 50 },
+        "address": { "type": "string", "maxLength": 300 },
+        "state": { "type": "string", "maxLength": 100 },
+        "lga": { "type": "string", "maxLength": 100 },
+        "savedAddresses": { "type": "array" },
+        "wishlist": { "type": "array" },
+        "createdAt": { "type": "string" }
+      },
+      "required": ["uid", "email"]
+    }
+  },
+  "firestore": {
+    "/products/{productId}": {
+      "schema": "Product",
+      "description": "Product catalog accessible to all customers for reading, updated by admin"
+    },
+    "/categories/{categoryId}": {
+      "schema": "Category",
+      "description": "Dynamic categories displayed across store"
+    },
+    "/slides/{slideId}": {
+      "schema": "Slide",
+      "description": "Homepage slideshow slides"
+    },
+    "/orders/{orderId}": {
+      "schema": "Order",
+      "description": "Customer orders, created by customer or guest, viewable by owner and admin"
+    },
+    "/saveToBuyPlans/{planId}": {
+      "schema": "SaveToBuyPlan",
+      "description": "Installment plans for Save to Buy customers"
+    },
+    "/payments/{paymentId}": {
+      "schema": "PaymentReceipt",
+      "description": "Payment receipts uploaded by customers for orders or installment plans"
+    },
+    "/klumpTransactions/{txId}": {
+      "schema": "KlumpTransaction",
+      "description": "Klump BNPL financing records"
+    },
+    "/contactMessages/{messageId}": {
+      "schema": "ContactMessage",
+      "description": "Customer inquiry messages"
+    },
+    "/users/{userId}": {
+      "schema": "UserProfile",
+      "description": "Customer profile documents"
+    },
+    "/admins/{adminUid}": {
+      "schema": { "$ref": "entities.UserProfile" },
+      "description": "Admin identity markers"
+    }
+  }
+}
