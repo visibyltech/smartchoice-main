@@ -38,16 +38,24 @@ import {
   setDoc,
   updateDoc,
   deleteDoc,
-  onSnapshot
+  onSnapshot,
+  query,
+  where
 } from 'firebase/firestore';
 import {
   signInWithPopup,
   GoogleAuthProvider,
   signOut,
   onAuthStateChanged,
+  signInWithEmailAndPassword,
+  createUserWithEmailAndPassword,
+  updateProfile,
+  sendPasswordResetEmail,
   User
 } from 'firebase/auth';
 import { calculateSaveToBuy, generateRef } from '../utils/formatters';
+
+const AUTHORIZED_ADMIN_EMAIL = 'smartchoiceglobalresourcesltd@gmail.com';
 
 interface StoreConfig {
   cloudinaryConfigured: boolean;
@@ -55,6 +63,7 @@ interface StoreConfig {
   cloudinaryApiKey: string;
   klumpConfigured: boolean;
   klumpPublicKey: string;
+  authorizedAdminEmail: string;
   showrooms: Showroom[];
   storeBankAccounts: StoreBankAccount[];
 }
@@ -157,13 +166,15 @@ interface StoreContextType {
   addSlide: (slide: Omit<Slide, 'id'>) => Promise<Slide>;
   updateSlide: (slideId: string, updates: Partial<Slide>) => Promise<void>;
   deleteSlide: (slideId: string) => Promise<void>;
+  uploadProductImage: (fileDataUrl: string) => Promise<{ url: string; configured: boolean }>;
 
   // Auth & Admin Identity
   currentUser: User | null;
   isAdmin: boolean;
-  adminModeOverride: boolean;
-  setAdminModeOverride: (enabled: boolean) => void;
-  loginWithGoogle: () => Promise<void>;
+  loginWithGoogle: () => Promise<User>;
+  signInWithEmail: (email: string, password: string) => Promise<User>;
+  signUpWithEmail: (email: string, password: string, fullName: string, phone: string) => Promise<User>;
+  sendPasswordReset: (email: string) => Promise<void>;
   logout: () => Promise<void>;
 }
 
@@ -260,9 +271,14 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
   const [contactMessages, setContactMessages] = useState<ContactMessage[]>([]);
 
-  // Auth & Admin State
+  // Auth State
   const [currentUser, setCurrentUser] = useState<User | null>(null);
-  const [adminModeOverride, setAdminModeOverride] = useState<boolean>(true); // Default true for previewing and admin capabilities
+
+  // Strict Admin Verification (Only smartchoiceglobalresourcesltd@gmail.com)
+  const isAdmin = Boolean(
+    currentUser &&
+    currentUser.email?.toLowerCase().trim() === AUTHORIZED_ADMIN_EMAIL.toLowerCase()
+  );
 
   // Fetch backend config
   useEffect(() => {
@@ -313,9 +329,9 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     return () => unsubscribe();
   }, []);
 
-  // Real-time Firestore sync
+  // Real-time Firestore sync with strict ABAC scoping
   useEffect(() => {
-    // Products
+    // 1. Products (Public read)
     const unsubProducts = onSnapshot(
       collection(db, 'products'),
       snapshot => {
@@ -332,7 +348,7 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       }
     );
 
-    // Categories
+    // 2. Categories (Public read)
     const unsubCategories = onSnapshot(
       collection(db, 'categories'),
       snapshot => {
@@ -349,76 +365,124 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       }
     );
 
-    // Orders
-    const unsubOrders = onSnapshot(
-      collection(db, 'orders'),
+    // 3. Slides (Public read)
+    const unsubSlides = onSnapshot(
+      collection(db, 'slides'),
       snapshot => {
         if (!snapshot.empty) {
-          const remoteOrders: Order[] = [];
+          const remoteSlides: Slide[] = [];
           snapshot.forEach(docSnap => {
-            remoteOrders.push({ id: docSnap.id, ...(docSnap.data() as any) });
+            remoteSlides.push({ id: docSnap.id, ...(docSnap.data() as any) });
           });
-          setOrders(remoteOrders);
+          setSlides(remoteSlides);
         }
       },
       error => {
-        console.warn('Firestore orders sync note:', error.message);
+        console.warn('Firestore slides sync note:', error.message);
       }
     );
 
-    // Save To Buy Plans
-    const unsubPlans = onSnapshot(
-      collection(db, 'saveToBuyPlans'),
-      snapshot => {
-        if (!snapshot.empty) {
-          const remotePlans: SaveToBuyPlan[] = [];
+    // 4. Scoped Orders Listener
+    let unsubOrders = () => {};
+    if (isAdmin) {
+      unsubOrders = onSnapshot(
+        collection(db, 'orders'),
+        snapshot => {
+          if (!snapshot.empty) {
+            const remoteOrders: Order[] = [];
+            snapshot.forEach(docSnap => {
+              remoteOrders.push({ id: docSnap.id, ...(docSnap.data() as any) });
+            });
+            setOrders(remoteOrders);
+          }
+        },
+        error => console.warn('Firestore admin orders sync:', error.message)
+      );
+    } else if (currentUser) {
+      unsubOrders = onSnapshot(
+        query(collection(db, 'orders'), where('customerId', '==', currentUser.uid)),
+        snapshot => {
+          const userOrders: Order[] = [];
           snapshot.forEach(docSnap => {
-            remotePlans.push({ id: docSnap.id, ...(docSnap.data() as any) });
+            userOrders.push({ id: docSnap.id, ...(docSnap.data() as any) });
           });
-          setSaveToBuyPlans(remotePlans);
-        }
-      },
-      error => {
-        console.warn('Firestore saveToBuyPlans sync note:', error.message);
-      }
-    );
+          setOrders(userOrders);
+        },
+        error => console.warn('Firestore customer orders sync:', error.message)
+      );
+    }
 
-    // Payment Receipts
-    const unsubPayments = onSnapshot(
-      collection(db, 'payments'),
-      snapshot => {
-        if (!snapshot.empty) {
-          const remotePayments: PaymentReceipt[] = [];
+    // 5. Scoped Save To Buy Plans Listener
+    let unsubPlans = () => {};
+    if (isAdmin) {
+      unsubPlans = onSnapshot(
+        collection(db, 'saveToBuyPlans'),
+        snapshot => {
+          if (!snapshot.empty) {
+            const remotePlans: SaveToBuyPlan[] = [];
+            snapshot.forEach(docSnap => {
+              remotePlans.push({ id: docSnap.id, ...(docSnap.data() as any) });
+            });
+            setSaveToBuyPlans(remotePlans);
+          }
+        },
+        error => console.warn('Firestore admin plans sync:', error.message)
+      );
+    } else if (currentUser) {
+      unsubPlans = onSnapshot(
+        query(collection(db, 'saveToBuyPlans'), where('customerId', '==', currentUser.uid)),
+        snapshot => {
+          const userPlans: SaveToBuyPlan[] = [];
           snapshot.forEach(docSnap => {
-            remotePayments.push({ id: docSnap.id, ...(docSnap.data() as any) });
+            userPlans.push({ id: docSnap.id, ...(docSnap.data() as any) });
           });
-          setPaymentReceipts(remotePayments);
-        }
-      },
-      error => {
-        console.warn('Firestore payments sync note:', error.message);
-      }
-    );
+          setSaveToBuyPlans(userPlans);
+        },
+        error => console.warn('Firestore customer plans sync:', error.message)
+      );
+    }
+
+    // 6. Scoped Payment Receipts Listener
+    let unsubPayments = () => {};
+    if (isAdmin) {
+      unsubPayments = onSnapshot(
+        collection(db, 'payments'),
+        snapshot => {
+          if (!snapshot.empty) {
+            const remotePayments: PaymentReceipt[] = [];
+            snapshot.forEach(docSnap => {
+              remotePayments.push({ id: docSnap.id, ...(docSnap.data() as any) });
+            });
+            setPaymentReceipts(remotePayments);
+          }
+        },
+        error => console.warn('Firestore admin payments sync:', error.message)
+      );
+    } else if (currentUser) {
+      unsubPayments = onSnapshot(
+        query(collection(db, 'payments'), where('customerId', '==', currentUser.uid)),
+        snapshot => {
+          const userReceipts: PaymentReceipt[] = [];
+          snapshot.forEach(docSnap => {
+            userReceipts.push({ id: docSnap.id, ...(docSnap.data() as any) });
+          });
+          setPaymentReceipts(userReceipts);
+        },
+        error => console.warn('Firestore customer payments sync:', error.message)
+      );
+    }
 
     return () => {
       unsubProducts();
       unsubCategories();
+      unsubSlides();
       unsubOrders();
       unsubPlans();
       unsubPayments();
     };
-  }, []);
+  }, [currentUser, isAdmin]);
 
-  // Determine admin privileges
-  const isAdmin = Boolean(
-    adminModeOverride ||
-    (currentUser && (
-      currentUser.email === 'usitakatelvin@gmail.com' ||
-      currentUser.email === 'smartchoiceglobalresourcesltd@gmail.com'
-    ))
-  );
-
-  // Cart operations
+  // Cart operations (Preserves all state)
   const cartCount = cart.reduce((total, item) => total + item.quantity, 0);
   const cartSubtotal = cart.reduce((total, item) => total + item.product.price * item.quantity, 0);
 
@@ -445,7 +509,7 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
           if (item.product.id === productId) {
             const newQty = item.quantity + delta;
             if (newQty <= 0) return null;
-            if (newQty > item.product.stock) return item; // Prevent exceeding stock
+            if (newQty > item.product.stock) return item;
             return { ...item, quantity: newQty };
           }
           return item;
@@ -487,7 +551,7 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
   const isInWishlist = (productId: string) => wishlist.includes(productId);
 
-  // Order Creation
+  // Order Creation (Bound strictly to authenticated customer)
   const createOrder = async (orderData: {
     customerName: string;
     customerEmail: string;
@@ -504,6 +568,10 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     receiptFileName?: string;
     notes?: string;
   }): Promise<Order> => {
+    if (!currentUser) {
+      throw new Error('Customer authentication is required before an order can be created.');
+    }
+
     const orderRef = generateRef('SC');
     const orderId = 'order_' + Date.now();
     const now = new Date().toISOString();
@@ -511,16 +579,16 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     const newOrder: Order = {
       id: orderId,
       orderRef,
-      customerId: currentUser?.uid || 'guest_' + Date.now(),
+      customerId: currentUser.uid,
       customerName: orderData.customerName,
-      customerEmail: orderData.customerEmail,
+      customerEmail: currentUser.email || orderData.customerEmail,
       customerPhone: orderData.customerPhone,
       items: orderData.items,
       subtotal: orderData.subtotal,
       deliveryFee: orderData.deliveryFee,
       totalAmount: orderData.totalAmount,
       paymentMethod: orderData.paymentMethod,
-      paymentStatus: orderData.paymentMethod === 'bank_transfer' ? 'pending' : (orderData.paymentMethod === 'klump' ? 'pending' : 'pending'),
+      paymentStatus: 'pending',
       orderStatus: orderData.paymentMethod === 'bank_transfer' ? 'payment_pending' : 'received',
       fulfillmentType: orderData.fulfillmentType,
       pickupShowroom: orderData.pickupShowroom,
@@ -540,7 +608,7 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
           {
             status: 'payment_pending' as OrderStatus,
             title: 'Payment Receipt Uploaded',
-            note: 'Bank transfer receipt submitted. Awaiting admin verification.',
+            note: 'Bank transfer receipt submitted. Pending administrator verification.',
             timestamp: now,
             actor: 'Customer'
           }
@@ -550,17 +618,14 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       updatedAt: now
     };
 
-    // Update local state
     setOrders(prev => [newOrder, ...prev]);
 
-    // Save to Firestore
     try {
       await setDoc(doc(db, 'orders', orderId), newOrder);
     } catch (err) {
       console.warn('Firestore order save error, cached locally:', err);
     }
 
-    // If bank transfer receipt was provided, record payment receipt
     if (orderData.receiptUrl) {
       const receiptId = 'rec_' + Date.now();
       const newReceipt: PaymentReceipt = {
@@ -569,9 +634,9 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         type: 'order_payment',
         orderId,
         orderRef,
-        customerId: newOrder.customerId,
+        customerId: currentUser.uid,
         customerName: orderData.customerName,
-        customerEmail: orderData.customerEmail,
+        customerEmail: currentUser.email || orderData.customerEmail,
         customerPhone: orderData.customerPhone,
         amount: orderData.totalAmount,
         bankName: 'Moniepoint MFB / Sterling Bank PLC',
@@ -590,13 +655,15 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       }
     }
 
-    // Clear cart after successful checkout
     clearCart();
-
     return newOrder;
   };
 
   const updateOrderStatus = async (orderId: string, status: OrderStatus, note?: string) => {
+    if (!isAdmin) {
+      throw new Error('Only the authorised administrator can update order status.');
+    }
+
     const now = new Date().toISOString();
     const statusTitles: Record<OrderStatus, string> = {
       received: 'Order Received',
@@ -621,7 +688,7 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
               title: statusTitles[status] || status,
               note: note || undefined,
               timestamp: now,
-              actor: isAdmin ? 'Admin' : 'System'
+              actor: 'Administrator'
             }
           ];
           return {
@@ -646,6 +713,10 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   };
 
   const updateOrderPaymentStatus = async (orderId: string, status: PaymentStatus, note?: string) => {
+    if (!isAdmin) {
+      throw new Error('Only the authorised administrator can update payment status.');
+    }
+
     const now = new Date().toISOString();
     setOrders(prev =>
       prev.map(order => {
@@ -658,7 +729,7 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
               title: status === 'verified' ? 'Payment Verified by Admin' : 'Payment Issue / Rejected',
               note: note || (status === 'verified' ? 'Payment confirmed into Smart Choice account.' : 'Receipt rejected.'),
               timestamp: now,
-              actor: 'Admin'
+              actor: 'Administrator'
             }
           ];
           return {
@@ -698,6 +769,10 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     initialReceiptFileName?: string;
     initialDepositAmount?: number;
   }): Promise<SaveToBuyPlan> => {
+    if (!currentUser) {
+      throw new Error('Authentication required to create a Save to Buy plan.');
+    }
+
     const planRef = generateRef('STB');
     const planId = 'plan_' + Date.now();
     const now = new Date().toISOString();
@@ -719,9 +794,9 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     const newPlan: SaveToBuyPlan = {
       id: planId,
       planRef,
-      customerId: currentUser?.uid || 'guest_' + Date.now(),
+      customerId: currentUser.uid,
       customerName: data.customerName,
-      customerEmail: data.customerEmail,
+      customerEmail: currentUser.email || data.customerEmail,
       customerPhone: data.customerPhone,
       productId: data.product.id,
       productName: data.product.name,
@@ -754,7 +829,6 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       console.warn('Firestore plan save error:', err);
     }
 
-    // If initial deposit receipt was uploaded, record payment receipt
     if (data.initialReceiptUrl && initialDeposit > 0) {
       const receiptId = 'rec_' + Date.now();
       const newReceipt: PaymentReceipt = {
@@ -764,9 +838,9 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         planId,
         planRef,
         installmentNumber: 1,
-        customerId: newPlan.customerId,
+        customerId: currentUser.uid,
         customerName: data.customerName,
-        customerEmail: data.customerEmail,
+        customerEmail: currentUser.email || data.customerEmail,
         customerPhone: data.customerPhone,
         amount: initialDeposit,
         bankName: 'Moniepoint MFB / Sterling Bank PLC',
@@ -797,9 +871,10 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     bankName: string,
     accountNumber: string
   ) => {
+    if (!currentUser) throw new Error('Customer authentication required.');
+
     const now = new Date().toISOString();
     const receiptId = 'rec_' + Date.now();
-
     const plan = saveToBuyPlans.find(p => p.id === planId);
 
     const newReceipt: PaymentReceipt = {
@@ -809,9 +884,9 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       planId,
       planRef: plan?.planRef,
       installmentNumber,
-      customerId: plan?.customerId,
+      customerId: currentUser.uid,
       customerName: plan?.customerName || 'Customer',
-      customerEmail: plan?.customerEmail,
+      customerEmail: currentUser.email || plan?.customerEmail,
       customerPhone: plan?.customerPhone,
       amount,
       bankName,
@@ -861,12 +936,14 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   };
 
   const verifyInstallmentReceipt = async (receiptId: string, verified: boolean, reason?: string) => {
+    if (!isAdmin) throw new Error('Unauthorized.');
+
     const now = new Date().toISOString();
     const receipt = paymentReceipts.find(r => r.id === receiptId);
     if (!receipt || !receipt.planId) return;
 
     setPaymentReceipts(prev =>
-      prev.map(r => (r.id === receiptId ? { ...r, status: verified ? 'verified' : 'rejected', rejectionReason: reason, verifiedAt: now, verifiedBy: 'Admin' } : r))
+      prev.map(r => (r.id === receiptId ? { ...r, status: verified ? 'verified' : 'rejected', rejectionReason: reason, verifiedAt: now, verifiedBy: AUTHORIZED_ADMIN_EMAIL } : r))
     );
 
     setSaveToBuyPlans(prev =>
@@ -906,7 +983,7 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         status: verified ? 'verified' : 'rejected',
         rejectionReason: reason || null,
         verifiedAt: now,
-        verifiedBy: 'Admin'
+        verifiedBy: AUTHORIZED_ADMIN_EMAIL
       });
     } catch (err) {
       console.warn('Firestore payment update error:', err);
@@ -914,6 +991,8 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   };
 
   const authorizeProductRelease = async (planId: string) => {
+    if (!isAdmin) throw new Error('Only the authorised administrator can authorize goods release.');
+
     const plan = saveToBuyPlans.find(p => p.id === planId);
     if (!plan || plan.balance > 0) {
       throw new Error('Product cannot be released until every required installment payment has been completed and verified.');
@@ -936,6 +1015,8 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   };
 
   const verifyPaymentReceipt = async (receiptId: string, verified: boolean, reason?: string) => {
+    if (!isAdmin) throw new Error('Unauthorized.');
+
     const receipt = paymentReceipts.find(r => r.id === receiptId);
     if (!receipt) return;
 
@@ -944,7 +1025,7 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     } else {
       const now = new Date().toISOString();
       setPaymentReceipts(prev =>
-        prev.map(r => (r.id === receiptId ? { ...r, status: verified ? 'verified' : 'rejected', rejectionReason: reason, verifiedAt: now, verifiedBy: 'Admin' } : r))
+        prev.map(r => (r.id === receiptId ? { ...r, status: verified ? 'verified' : 'rejected', rejectionReason: reason, verifiedAt: now, verifiedBy: AUTHORIZED_ADMIN_EMAIL } : r))
       );
 
       if (receipt.orderId) {
@@ -956,7 +1037,7 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
           status: verified ? 'verified' : 'rejected',
           rejectionReason: reason || null,
           verifiedAt: now,
-          verifiedBy: 'Admin'
+          verifiedBy: AUTHORIZED_ADMIN_EMAIL
         });
       } catch (err) {
         console.warn('Firestore payment verify error:', err);
@@ -984,7 +1065,6 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
     setContactMessages(prev => [newMsg, ...prev]);
 
-    // Send to backend endpoint
     try {
       await fetch('/api/contact', {
         method: 'POST',
@@ -1002,8 +1082,29 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     }
   };
 
+  // Cloudinary Product Image Upload Helper
+  const uploadProductImage = async (fileDataUrl: string): Promise<{ url: string; configured: boolean }> => {
+    try {
+      const res = await fetch('/api/cloudinary/upload', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ file: fileDataUrl, folder: 'smartchoice/products' })
+      });
+      const data = await res.json();
+      if (data.url) {
+        return { url: data.url, configured: Boolean(data.configured) };
+      }
+      return { url: fileDataUrl, configured: false };
+    } catch (err) {
+      console.warn('Cloudinary upload endpoint fallback to file data:', err);
+      return { url: fileDataUrl, configured: false };
+    }
+  };
+
   // Admin Product Management
   const addProduct = async (productData: Omit<Product, 'id'>): Promise<Product> => {
+    if (!isAdmin) throw new Error('Unauthorized.');
+
     const id = 'prod_' + Date.now();
     const now = new Date().toISOString();
     const newProduct: Product = {
@@ -1025,6 +1126,8 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   };
 
   const updateProduct = async (productId: string, updates: Partial<Product>) => {
+    if (!isAdmin) throw new Error('Unauthorized.');
+
     const now = new Date().toISOString();
     setProducts(prev =>
       prev.map(p => (p.id === productId ? { ...p, ...updates, updatedAt: now } : p))
@@ -1041,6 +1144,8 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   };
 
   const deleteProduct = async (productId: string) => {
+    if (!isAdmin) throw new Error('Unauthorized.');
+
     setProducts(prev => prev.filter(p => p.id !== productId));
     try {
       await deleteDoc(doc(db, 'products', productId));
@@ -1051,6 +1156,8 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
   // Admin Category Management
   const addCategory = async (catData: Omit<Category, 'id'>): Promise<Category> => {
+    if (!isAdmin) throw new Error('Unauthorized.');
+
     const id = 'cat_' + Date.now();
     const newCat: Category = {
       id,
@@ -1070,6 +1177,8 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   };
 
   const updateCategory = async (categoryId: string, updates: Partial<Category>) => {
+    if (!isAdmin) throw new Error('Unauthorized.');
+
     setCategories(prev =>
       prev.map(c => (c.id === categoryId ? { ...c, ...updates } : c))
     );
@@ -1082,6 +1191,8 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   };
 
   const deleteCategory = async (categoryId: string) => {
+    if (!isAdmin) throw new Error('Unauthorized.');
+
     setCategories(prev => prev.filter(c => c.id !== categoryId));
     try {
       await deleteDoc(doc(db, 'categories', categoryId));
@@ -1092,6 +1203,8 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
   // Admin Slideshow Management
   const addSlide = async (slideData: Omit<Slide, 'id'>): Promise<Slide> => {
+    if (!isAdmin) throw new Error('Unauthorized.');
+
     const id = 'slide_' + Date.now();
     const newSlide: Slide = {
       id,
@@ -1110,6 +1223,8 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   };
 
   const updateSlide = async (slideId: string, updates: Partial<Slide>) => {
+    if (!isAdmin) throw new Error('Unauthorized.');
+
     setSlides(prev =>
       prev.map(s => (s.id === slideId ? { ...s, ...updates } : s))
     );
@@ -1122,6 +1237,8 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   };
 
   const deleteSlide = async (slideId: string) => {
+    if (!isAdmin) throw new Error('Unauthorized.');
+
     setSlides(prev => prev.filter(s => s.id !== slideId));
     try {
       await deleteDoc(doc(db, 'slides', slideId));
@@ -1130,15 +1247,61 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     }
   };
 
-  // Auth Functions
-  const loginWithGoogle = async () => {
+  // Authentication Methods
+  const loginWithGoogle = async (): Promise<User> => {
     const provider = new GoogleAuthProvider();
+    const result = await signInWithPopup(auth, provider);
+    setCurrentUser(result.user);
+
     try {
-      const result = await signInWithPopup(auth, provider);
-      setCurrentUser(result.user);
-    } catch (err) {
-      console.error('Google Sign In error:', err);
+      await setDoc(doc(db, 'users', result.user.uid), {
+        uid: result.user.uid,
+        email: result.user.email,
+        fullName: result.user.displayName || 'Customer',
+        phone: result.user.phoneNumber || '',
+        updatedAt: new Date().toISOString()
+      }, { merge: true });
+    } catch (e) {
+      console.warn('User profile sync notice:', e);
     }
+
+    return result.user;
+  };
+
+  const signInWithEmail = async (email: string, password: string): Promise<User> => {
+    const result = await signInWithEmailAndPassword(auth, email, password);
+    setCurrentUser(result.user);
+    return result.user;
+  };
+
+  const signUpWithEmail = async (
+    email: string,
+    password: string,
+    fullName: string,
+    phone: string
+  ): Promise<User> => {
+    const result = await createUserWithEmailAndPassword(auth, email, password);
+    await updateProfile(result.user, { displayName: fullName });
+    const updatedUser = { ...result.user, displayName: fullName } as User;
+    setCurrentUser(updatedUser);
+
+    try {
+      await setDoc(doc(db, 'users', result.user.uid), {
+        uid: result.user.uid,
+        email,
+        fullName,
+        phone,
+        createdAt: new Date().toISOString()
+      });
+    } catch (e) {
+      console.warn('Firestore user profile creation error:', e);
+    }
+
+    return updatedUser;
+  };
+
+  const sendPasswordReset = async (email: string): Promise<void> => {
+    await sendPasswordResetEmail(auth, email);
   };
 
   const logout = async () => {
@@ -1188,11 +1351,13 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         addSlide,
         updateSlide,
         deleteSlide,
+        uploadProductImage,
         currentUser,
         isAdmin,
-        adminModeOverride,
-        setAdminModeOverride,
         loginWithGoogle,
+        signInWithEmail,
+        signUpWithEmail,
+        sendPasswordReset,
         logout
       }}
     >

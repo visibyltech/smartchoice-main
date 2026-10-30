@@ -122,11 +122,11 @@ export const SaveToBuyPage: React.FC<SaveToBuyPageProps> = ({
           </h1>
 
           <p className="text-xs sm:text-sm text-gray-300 leading-relaxed">
-            Smart Choice makes home appliances accessible. Choose your dream television, refrigerator, air conditioner, or generator, pick 1 to 4 months duration with fixed 3%, 5%, or 7% rates, and make flexible weekly or monthly transfers.
+            Smart Choice makes home appliances accessible. Choose your dream television, refrigerator, air conditioner, or generator, pick 1 to 4 months duration with structured installment terms, and make convenient weekly or monthly transfers.
           </p>
 
           <div className="pt-2 flex flex-wrap gap-4 text-xs font-semibold text-emerald-300">
-            <span className="flex items-center gap-1">✓ Fixed Rates: 1m (3%), 2m (5%), 3m (7%), 4m (7%)</span>
+            <span className="flex items-center gap-1">✓ Transparent 1 to 4 months savings plans</span>
             <span className="flex items-center gap-1">✓ No hidden bank charges</span>
             <span className="flex items-center gap-1">✓ Pick up at Port Harcourt showrooms</span>
           </div>

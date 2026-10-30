@@ -204,37 +204,39 @@ export const ProductPage: React.FC<ProductPageProps> = ({
               </div>
             </div>
 
-            {/* THREE PURCHASE BUTTONS */}
+            {/* ACTION BUTTONS: Add to Cart and Checkout side by side, Save to Buy directly underneath */}
             <div className="space-y-2.5 pt-1">
-              {/* 1. Add to Cart */}
-              <button
-                type="button"
-                onClick={handleAddToCart}
-                disabled={!product.inStock}
-                className="w-full bg-[#0A1931] hover:bg-slate-800 disabled:opacity-50 text-white font-bold py-3 px-4 rounded-xl flex items-center justify-center gap-2 transition shadow-sm focus:outline-none"
-              >
-                <ShoppingCart className="w-5 h-5" />
-                <span>Add to Cart</span>
-              </button>
+              <div className="grid grid-cols-2 gap-3">
+                {/* 1. Add to Cart */}
+                <button
+                  type="button"
+                  onClick={handleAddToCart}
+                  disabled={!product.inStock}
+                  className="w-full h-12 bg-[#0A1931] hover:bg-slate-800 disabled:opacity-50 text-white font-bold px-3 sm:px-4 rounded-xl flex items-center justify-center gap-1.5 sm:gap-2 transition shadow-sm focus:outline-none text-xs sm:text-sm"
+                >
+                  <ShoppingCart className="w-4 h-4 sm:w-5 sm:h-5 shrink-0" />
+                  <span className="truncate">Add to Cart</span>
+                </button>
 
-              {/* 2. Checkout Now */}
-              <button
-                type="button"
-                onClick={handleCheckoutNow}
-                disabled={!product.inStock}
-                className="w-full bg-[#D91E2A] hover:bg-[#b81822] disabled:opacity-50 text-white font-bold py-3 px-4 rounded-xl flex items-center justify-center gap-2 transition shadow-md focus:outline-none"
-              >
-                <CreditCard className="w-5 h-5" />
-                <span>Checkout Now</span>
-              </button>
+                {/* 2. Checkout */}
+                <button
+                  type="button"
+                  onClick={handleCheckoutNow}
+                  disabled={!product.inStock}
+                  className="w-full h-12 bg-[#D91E2A] hover:bg-[#b81822] disabled:opacity-50 text-white font-bold px-3 sm:px-4 rounded-xl flex items-center justify-center gap-1.5 sm:gap-2 transition shadow-md focus:outline-none text-xs sm:text-sm"
+                >
+                  <CreditCard className="w-4 h-4 sm:w-5 sm:h-5 shrink-0" />
+                  <span className="truncate">Checkout</span>
+                </button>
+              </div>
 
-              {/* 3. Save to Buy */}
+              {/* 3. Save to Buy directly underneath */}
               <button
                 type="button"
                 onClick={handleSaveToBuy}
-                className="w-full bg-emerald-700 hover:bg-emerald-800 text-white font-bold py-3 px-4 rounded-xl flex items-center justify-center gap-2 transition shadow-sm focus:outline-none"
+                className="w-full h-12 bg-emerald-700 hover:bg-emerald-800 text-white font-bold px-4 rounded-xl flex items-center justify-center gap-2 transition shadow-sm focus:outline-none text-xs sm:text-sm"
               >
-                <Clock className="w-5 h-5" />
+                <Clock className="w-4 h-4 sm:w-5 sm:h-5 shrink-0" />
                 <span>Save to Buy (Flexible 1 - 4 Months Savings)</span>
               </button>
             </div>

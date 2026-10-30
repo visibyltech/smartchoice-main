@@ -18,7 +18,7 @@ interface FooterProps {
 }
 
 export const Footer: React.FC<FooterProps> = ({ onNavigate }) => {
-  const { categories } = useStore();
+  const { categories, isAdmin } = useStore();
 
   return (
     <footer className="bg-[#0A1931] text-gray-300 pt-12 pb-8 border-t-4 border-[#D91E2A]">
@@ -40,7 +40,7 @@ export const Footer: React.FC<FooterProps> = ({ onNavigate }) => {
             </div>
             <div>
               <h4 className="text-white font-bold text-sm">Save to Buy Plans</h4>
-              <p className="text-xs text-gray-400 mt-0.5">Lock prices at 3%, 5%, or 7% fixed interest</p>
+              <p className="text-xs text-gray-400 mt-0.5">Lock prices with flexible installment terms</p>
             </div>
           </div>
           <div className="flex items-start gap-3">
@@ -181,7 +181,7 @@ export const Footer: React.FC<FooterProps> = ({ onNavigate }) => {
               </li>
               <li>
                 <button onClick={() => onNavigate('save-to-buy')} className="hover:text-white transition text-emerald-400 font-semibold">
-                  Save to Buy Plans (3%-7%)
+                  Save to Buy Plans
                 </button>
               </li>
               <li>
@@ -199,11 +199,13 @@ export const Footer: React.FC<FooterProps> = ({ onNavigate }) => {
                   Contact Us & Directions
                 </button>
               </li>
-              <li>
-                <button onClick={() => onNavigate('admin')} className="text-amber-400 hover:underline font-semibold">
-                  Staff & Admin Portal
-                </button>
-              </li>
+              {isAdmin && (
+                <li>
+                  <button onClick={() => onNavigate('admin')} className="text-amber-400 hover:underline font-semibold">
+                    Admin Dashboard
+                  </button>
+                </li>
+              )}
             </ul>
           </div>
         </div>

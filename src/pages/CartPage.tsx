@@ -16,14 +16,16 @@ interface CartPageProps {
   onContinueShopping: () => void;
   onProceedToCheckout: () => void;
   onSaveToBuyDirect?: (product: any) => void;
+  onOpenAuth?: (mode?: 'signin' | 'register', onComplete?: () => void) => void;
 }
 
 export const CartPage: React.FC<CartPageProps> = ({
   onContinueShopping,
   onProceedToCheckout,
-  onSaveToBuyDirect
+  onSaveToBuyDirect,
+  onOpenAuth
 }) => {
-  const { cart, cartSubtotal, updateCartQuantity, removeFromCart, clearCart } = useStore();
+  const { cart, cartSubtotal, updateCartQuantity, removeFromCart, clearCart, currentUser } = useStore();
 
   if (cart.length === 0) {
     return (
@@ -192,12 +194,23 @@ export const CartPage: React.FC<CartPageProps> = ({
 
             {/* Proceed to Checkout */}
             <button
-              onClick={onProceedToCheckout}
+              onClick={() => {
+                if (!currentUser && onOpenAuth) {
+                  onOpenAuth('signin', onProceedToCheckout);
+                } else {
+                  onProceedToCheckout();
+                }
+              }}
               className="w-full bg-[#D91E2A] hover:bg-[#b81822] text-white font-bold py-3.5 px-4 rounded-xl flex items-center justify-center gap-2 transition shadow-md text-sm"
             >
               <span>Proceed to Checkout</span>
               <ArrowRight className="w-4 h-4" />
             </button>
+            {!currentUser && (
+              <p className="text-[11px] text-gray-500 text-center font-medium">
+                You will be prompted to sign in or register before completing order.
+              </p>
+            )}
 
             {/* Save to Buy Option */}
             <div className="pt-3 border-t border-gray-100 text-center">

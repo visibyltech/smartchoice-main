@@ -116,10 +116,10 @@ export const ProductCard: React.FC<ProductCardProps> = ({
             )}
           </div>
 
-          {/* Save to Buy hint */}
+          {/* Save to Buy available notice */}
           <div className="mt-1 flex items-center gap-1 text-[10px] text-emerald-700 font-medium">
             <Clock className="w-3 h-3 text-emerald-600 shrink-0" />
-            <span>Save to Buy from {formatNaira(Math.round((product.price * 1.03) / 4))}/mo</span>
+            <span>Save to Buy Available (1–4 Months)</span>
           </div>
 
           {/* Action Buttons */}

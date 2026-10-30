@@ -22,11 +22,11 @@ service cloud.firestore {
       return isSignedIn() && request.auth.uid == userId;
     }
 
+    // THE ONLY AUTHORISED ADMINISTRATOR EMAIL
     function isAdmin() {
       return isSignedIn() && (
-        exists(/databases/$(database)/documents/admins/$(request.auth.uid)) ||
-        request.auth.token.email == 'usitakatelvin@gmail.com' ||
-        request.auth.token.email == 'smartchoiceglobalresourcesltd@gmail.com'
+        request.auth.token.email.lower() == 'smartchoiceglobalresourcesltd@gmail.com' ||
+        exists(/databases/$(database)/documents/admins/$(request.auth.uid))
       );
     }
 
@@ -35,28 +35,31 @@ service cloud.firestore {
       allow read, write: if false;
     }
 
-    // Products catalog
+    // Products catalog: Public read, Admin write
     match /products/{productId} {
       allow read: if true;
       allow create, update, delete: if isAdmin();
     }
 
-    // Dynamic Categories
+    // Dynamic Categories: Public read, Admin write
     match /categories/{categoryId} {
       allow read: if true;
       allow create, update, delete: if isAdmin();
     }
 
-    // Homepage Slides
+    // Homepage Slides: Public read, Admin write
     match /slides/{slideId} {
       allow read: if true;
       allow create, update, delete: if isAdmin();
     }
 
-    // Orders
+    // Orders:
+    // Read: Allowed if user is admin, or if authenticated customer owns the order.
+    // Create: Allowed if authenticated customer is creating an order with customerId == request.auth.uid
+    // Update: Allowed if admin, or customer updating notes on pending order
     match /orders/{orderId} {
-      allow read: if true; // Allows order tracking by reference and email/phone
-      allow create: if incoming().totalAmount is number && incoming().totalAmount > 0;
+      allow read: if isAdmin() || (isSignedIn() && resource.data.customerId == request.auth.uid);
+      allow create: if isSignedIn() && incoming().customerId == request.auth.uid && incoming().totalAmount is number && incoming().totalAmount > 0;
       allow update: if isAdmin() || (
         isSignedIn() && resource.data.customerId == request.auth.uid &&
         incoming().diff(existing()).affectedKeys().hasOnly(['notes', 'orderStatus'])
@@ -64,20 +67,24 @@ service cloud.firestore {
       allow delete: if isAdmin();
     }
 
-    // Save To Buy Plans
+    // Save To Buy Plans:
+    // Read: Only owner customer or admin
+    // Create: Only authenticated customer for themselves
+    // Update & Delete: Admin only (customers cannot edit payment balances or release products!)
     match /saveToBuyPlans/{planId} {
-      allow read: if true; // For customer plan tracking
-      allow create: if incoming().totalPayable is number && incoming().totalPayable > 0;
-      allow update: if isAdmin() || (
-        isSignedIn() && resource.data.customerId == request.auth.uid
-      );
+      allow read: if isAdmin() || (isSignedIn() && resource.data.customerId == request.auth.uid);
+      allow create: if isSignedIn() && incoming().customerId == request.auth.uid && incoming().totalPayable is number && incoming().totalPayable > 0;
+      allow update: if isAdmin();
       allow delete: if isAdmin();
     }
 
-    // Payment Receipts
+    // Payment Receipts:
+    // Read: Owner customer or admin
+    // Create: Authenticated customer uploading for themselves
+    // Update & Delete: Admin only (only admin can verify or reject receipts)
     match /payments/{paymentId} {
-      allow read: if true;
-      allow create: if incoming().amount is number && incoming().amount > 0;
+      allow read: if isAdmin() || (isSignedIn() && resource.data.customerId == request.auth.uid);
+      allow create: if isSignedIn() && incoming().customerId == request.auth.uid && incoming().amount is number && incoming().amount > 0;
       allow update: if isAdmin();
       allow delete: if isAdmin();
     }
@@ -85,27 +92,28 @@ service cloud.firestore {
     // Klump BNPL Transactions
     match /klumpTransactions/{txId} {
       allow read: if isAdmin() || (isSignedIn() && resource.data.customerId == request.auth.uid);
-      allow create, update: if true;
+      allow create, update: if isAdmin() || (isSignedIn() && incoming().customerId == request.auth.uid);
       allow delete: if isAdmin();
     }
 
-    // Contact Messages
+    // Contact Messages: Public submission, Admin read/manage
     match /contactMessages/{messageId} {
       allow create: if incoming().email is string && incoming().email.size() <= 150;
       allow read, update, delete: if isAdmin();
     }
 
-    // User Profiles
+    // Customer Profiles:
+    // Owner can manage their profile. Block users from granting themselves admin roles or altering role fields!
     match /users/{userId} {
       allow read: if isSignedIn() && (request.auth.uid == userId || isAdmin());
-      allow create, update: if isSignedIn() && (request.auth.uid == userId || isAdmin());
+      allow create: if isSignedIn() && request.auth.uid == userId && !incoming().keys().hasAny(['role', 'isAdmin']);
+      allow update: if isSignedIn() && request.auth.uid == userId && !incoming().diff(existing()).affectedKeys().hasAny(['role', 'isAdmin']) || isAdmin();
       allow delete: if isAdmin();
     }
 
-    // Admin Markers
+    // Admin Identity Registry: Admin only
     match /admins/{adminUid} {
-      allow read: if isSignedIn();
-      allow write: if isAdmin();
+      allow read, write: if isAdmin();
     }
   }
 }

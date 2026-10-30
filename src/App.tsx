@@ -19,12 +19,13 @@ import { AboutPage } from './pages/AboutPage';
 import { WishlistPage } from './pages/WishlistPage';
 import { CustomerDashboardPage } from './pages/CustomerDashboardPage';
 import { AdminDashboard } from './pages/AdminDashboard';
+import { AuthModal } from './components/AuthModal';
 import { Product, Category, PaymentMethod } from './types';
 import { formatNaira } from './utils/formatters';
 import { CheckCircle2, ArrowRight, Store, Copy, Check, Clock } from 'lucide-react';
 
 function AppContent() {
-  const { products, categories, storeBankAccounts } = useStore();
+  const { products, categories, storeBankAccounts, currentUser, isAdmin } = useStore();
 
   const [currentView, setCurrentView] = useState<string>('home');
   const [previousView, setPreviousView] = useState<string>('home');
@@ -32,6 +33,25 @@ function AppContent() {
   const [activeCategorySlug, setActiveCategorySlug] = useState<string | undefined>(undefined);
   const [activeFilter, setActiveFilter] = useState<string | undefined>(undefined);
   const [searchQuery, setSearchQuery] = useState('');
+
+  // Authentication Modal State
+  const [authModalOpen, setAuthModalOpen] = useState(false);
+  const [authModalMode, setAuthModalMode] = useState<'signin' | 'register'>('signin');
+  const [postAuthCallback, setPostAuthCallback] = useState<(() => void) | null>(null);
+
+  const handleOpenAuth = (mode: 'signin' | 'register' = 'signin', onComplete?: () => void) => {
+    setAuthModalMode(mode);
+    setPostAuthCallback(() => onComplete || null);
+    setAuthModalOpen(true);
+  };
+
+  const handleAuthSuccess = () => {
+    if (postAuthCallback) {
+      const cb = postAuthCallback;
+      setPostAuthCallback(null);
+      cb();
+    }
+  };
 
   // Checkout specific parameters
   const [checkoutDirectProduct, setCheckoutDirectProduct] = useState<Product | undefined>(undefined);
@@ -84,7 +104,11 @@ function AppContent() {
     setCheckoutDirectProduct(product);
     setCheckoutDirectQuantity(quantity);
     setCheckoutPaymentMethod('bank_transfer');
-    setCurrentView('checkout');
+    if (!currentUser) {
+      handleOpenAuth('signin', () => setCurrentView('checkout'));
+    } else {
+      setCurrentView('checkout');
+    }
   };
 
   const handleSaveToBuyDirect = (product: Product) => {
@@ -92,7 +116,11 @@ function AppContent() {
     setCheckoutDirectProduct(product);
     setCheckoutDirectQuantity(1);
     setCheckoutPaymentMethod('save_to_buy');
-    setCurrentView('checkout');
+    if (!currentUser) {
+      handleOpenAuth('signin', () => setCurrentView('checkout'));
+    } else {
+      setCurrentView('checkout');
+    }
   };
 
   const handleCartProceedCheckout = () => {
@@ -100,7 +128,11 @@ function AppContent() {
     setCheckoutDirectProduct(undefined);
     setCheckoutDirectQuantity(1);
     setCheckoutPaymentMethod('bank_transfer');
-    setCurrentView('checkout');
+    if (!currentUser) {
+      handleOpenAuth('signin', () => setCurrentView('checkout'));
+    } else {
+      setCurrentView('checkout');
+    }
   };
 
   const handleCheckoutSuccess = (orderOrPlan: any, type: 'order' | 'plan') => {
@@ -115,8 +147,34 @@ function AppContent() {
     setTimeout(() => setCopiedBank(null), 2500);
   };
 
-  // If in admin mode
+  // If in admin mode - enforce authorized admin check
   if (currentView === 'admin') {
+    if (!isAdmin) {
+      return (
+        <div className="min-h-screen bg-gray-100 flex items-center justify-center p-4">
+          <div className="max-w-md w-full bg-white rounded-3xl p-8 border border-red-200 text-center space-y-4 shadow-xl">
+            <h2 className="text-xl font-black text-gray-900">Restricted Administrator Area</h2>
+            <p className="text-xs text-gray-600 leading-relaxed">
+              Access is strictly restricted to the authorized administrator account (<strong>smartchoiceglobalresourcesltd@gmail.com</strong>).
+            </p>
+            <div className="pt-2 space-y-2">
+              <button
+                onClick={() => handleOpenAuth('signin')}
+                className="w-full bg-[#0A1931] hover:bg-slate-800 text-white font-bold py-3 rounded-xl text-xs transition shadow-md"
+              >
+                Sign In with Admin Account
+              </button>
+              <button
+                onClick={() => setCurrentView('home')}
+                className="w-full bg-gray-100 hover:bg-gray-200 text-gray-700 font-bold py-2.5 rounded-xl text-xs transition"
+              >
+                Return to Storefront
+              </button>
+            </div>
+          </div>
+        </div>
+      );
+    }
     return <AdminDashboard onExitAdmin={() => setCurrentView('home')} />;
   }
 
@@ -129,6 +187,7 @@ function AppContent() {
         searchQuery={searchQuery}
         onSearchChange={setSearchQuery}
         onSearchSubmit={handleSearchSubmit}
+        onOpenAuth={handleOpenAuth}
       />
 
       {/* Main Content Area */}
@@ -201,6 +260,7 @@ function AppContent() {
             onContinueShopping={() => setCurrentView('shop')}
             onProceedToCheckout={handleCartProceedCheckout}
             onSaveToBuyDirect={handleSaveToBuyDirect}
+            onOpenAuth={handleOpenAuth}
           />
         )}
 
@@ -211,6 +271,7 @@ function AppContent() {
             initialPaymentMethod={checkoutPaymentMethod}
             onSuccess={handleCheckoutSuccess}
             onCancel={() => setCurrentView(previousView || 'cart')}
+            onOpenAuth={handleOpenAuth}
           />
         )}
 
@@ -317,6 +378,14 @@ function AppContent() {
 
       {/* Official Footer with Both Showrooms */}
       <Footer onNavigate={handleNavigate} />
+
+      {/* Global Authentication Modal */}
+      <AuthModal
+        isOpen={authModalOpen}
+        onClose={() => setAuthModalOpen(false)}
+        initialMode={authModalMode}
+        onSuccess={handleAuthSuccess}
+      />
     </div>
   );
 }

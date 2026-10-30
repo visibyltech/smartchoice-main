@@ -24,6 +24,7 @@ interface CheckoutPageProps {
   initialPaymentMethod?: PaymentMethod;
   onSuccess: (orderOrPlan: any, type: 'order' | 'plan') => void;
   onCancel: () => void;
+  onOpenAuth?: (mode?: 'signin' | 'register') => void;
 }
 
 export const CheckoutPage: React.FC<CheckoutPageProps> = ({
@@ -31,7 +32,8 @@ export const CheckoutPage: React.FC<CheckoutPageProps> = ({
   directQuantity = 1,
   initialPaymentMethod = 'bank_transfer',
   onSuccess,
-  onCancel
+  onCancel,
+  onOpenAuth
 }) => {
   const {
     cart,
@@ -65,6 +67,18 @@ export const CheckoutPage: React.FC<CheckoutPageProps> = ({
   const [lastName, setLastName] = useState('');
   const [email, setEmail] = useState(currentUser?.email || '');
   const [phone, setPhone] = useState('');
+
+  // Auto-sync customer details when currentUser signs in
+  React.useEffect(() => {
+    if (currentUser) {
+      if (currentUser.email && !email) setEmail(currentUser.email);
+      if (currentUser.displayName && (!firstName && !lastName)) {
+        const parts = currentUser.displayName.trim().split(' ');
+        setFirstName(parts[0] || '');
+        setLastName(parts.slice(1).join(' ') || '');
+      }
+    }
+  }, [currentUser]);
 
   // Delivery Address Fields (only revealed and required when Home Delivery is selected)
   const [state, setState] = useState('Rivers State');
@@ -122,6 +136,13 @@ export const CheckoutPage: React.FC<CheckoutPageProps> = ({
   const handleSubmitOrder = async (e: React.FormEvent) => {
     e.preventDefault();
     setErrorMessage(null);
+
+    // Validate authentication before allowing checkout to proceed
+    if (!currentUser) {
+      setErrorMessage('A customer account is required to place an order or activate Save to Buy. Please sign in or create an account.');
+      if (onOpenAuth) onOpenAuth('signin');
+      return;
+    }
 
     if (!firstName || !lastName || !email || !phone) {
       setErrorMessage('Please provide your first name, last name, email address, and phone number.');
@@ -273,6 +294,39 @@ export const CheckoutPage: React.FC<CheckoutPageProps> = ({
           Smart Choice Electronics Group • Port Harcourt, Rivers State
         </p>
       </div>
+
+      {/* Account Requirement Notice if unauthenticated */}
+      {!currentUser && (
+        <div className="mb-6 p-4 bg-amber-50 border border-amber-200 rounded-2xl flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 shadow-2xs">
+          <div className="flex items-start gap-3">
+            <div className="p-2 rounded-xl bg-amber-100 text-amber-800 shrink-0 mt-0.5">
+              <ShieldCheck className="w-5 h-5" />
+            </div>
+            <div>
+              <h4 className="font-bold text-gray-900 text-xs sm:text-sm">Customer Account Required for Checkout</h4>
+              <p className="text-gray-600 text-[11px] sm:text-xs leading-relaxed">
+                Please sign in or create an account to finalize your order, receive delivery receipts, and track your purchase. Your cart is preserved.
+              </p>
+            </div>
+          </div>
+          <div className="flex items-center gap-2 w-full sm:w-auto shrink-0">
+            <button
+              type="button"
+              onClick={() => onOpenAuth && onOpenAuth('signin')}
+              className="flex-1 sm:flex-none px-4 py-2 bg-[#0A1931] hover:bg-slate-800 text-white rounded-xl text-xs font-bold transition shadow-xs"
+            >
+              Sign In
+            </button>
+            <button
+              type="button"
+              onClick={() => onOpenAuth && onOpenAuth('register')}
+              className="flex-1 sm:flex-none px-4 py-2 bg-[#D91E2A] hover:bg-[#b81822] text-white rounded-xl text-xs font-bold transition shadow-xs"
+            >
+              Register
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* THREE COMPACT, NEAR-SQUARE PAYMENT CARDS SIDE BY SIDE, INCLUDING ON MOBILE (Mandatory) */}
       <div className="mb-8">

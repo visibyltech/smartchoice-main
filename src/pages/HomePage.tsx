@@ -103,7 +103,7 @@ export const HomePage: React.FC<HomePageProps> = ({
             Save to Buy Installment Program
           </span>
           <h2 className="text-xl sm:text-2xl font-black tracking-tight text-white">
-            Own High-End Electronics with 3%, 5%, or 7% Flexible Savings
+            Own High-End Electronics with Flexible Installment Savings
           </h2>
           <p className="text-xs sm:text-sm text-gray-300">
             No massive lump-sums needed. Choose your product, pick 1 to 4 months, and make steady weekly or monthly transfers with zero hidden bank fees.

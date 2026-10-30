@@ -22,6 +22,7 @@ interface HeaderProps {
   searchQuery: string;
   onSearchChange: (q: string) => void;
   onSearchSubmit: (e: React.FormEvent) => void;
+  onOpenAuth?: (mode?: 'signin' | 'register') => void;
 }
 
 export const Header: React.FC<HeaderProps> = ({
@@ -29,9 +30,10 @@ export const Header: React.FC<HeaderProps> = ({
   onNavigate,
   searchQuery,
   onSearchChange,
-  onSearchSubmit
+  onSearchSubmit,
+  onOpenAuth
 }) => {
-  const { cartCount, wishlist, isAdmin, adminModeOverride, setAdminModeOverride, currentUser, loginWithGoogle, logout } = useStore();
+  const { cartCount, wishlist, isAdmin, currentUser, loginWithGoogle, logout } = useStore();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [accountDropdownOpen, setAccountDropdownOpen] = useState(false);
 
@@ -41,7 +43,7 @@ export const Header: React.FC<HeaderProps> = ({
     { label: 'Categories', view: 'categories' },
     { label: 'Deals', view: 'shop', params: { filter: 'deal' }, icon: Percent, badge: 'Hot' },
     { label: 'New Arrivals', view: 'shop', params: { filter: 'new' }, icon: Sparkles },
-    { label: 'Save to Buy', view: 'save-to-buy', badge: '3% - 7%' },
+    { label: 'Save to Buy', view: 'save-to-buy' },
     { label: 'Track Order', view: 'track-order', icon: SearchCode },
     { label: 'About Us', view: 'about' },
     { label: 'Contact Us', view: 'contact' }
@@ -64,16 +66,20 @@ export const Header: React.FC<HeaderProps> = ({
           </div>
           <div className="flex items-center space-x-4">
             <span className="text-gray-300">Port Harcourt, Rivers State</span>
-            <div className="h-3 w-[1px] bg-gray-600" />
-            <button
-              onClick={() => onNavigate('admin')}
-              className={`flex items-center gap-1 px-2 py-0.5 rounded font-semibold text-[11px] transition ${
-                currentView.startsWith('admin') ? 'bg-[#D91E2A] text-white' : 'text-amber-400 hover:text-white'
-              }`}
-            >
-              <ShieldCheck className="w-3.5 h-3.5" />
-              Admin Portal
-            </button>
+            {isAdmin && (
+              <>
+                <div className="h-3 w-[1px] bg-gray-600" />
+                <button
+                  onClick={() => onNavigate('admin')}
+                  className={`flex items-center gap-1 px-2 py-0.5 rounded font-semibold text-[11px] transition ${
+                    currentView.startsWith('admin') ? 'bg-[#D91E2A] text-white' : 'text-amber-400 hover:text-white'
+                  }`}
+                >
+                  <ShieldCheck className="w-3.5 h-3.5" />
+                  Admin Portal
+                </button>
+              </>
+            )}
           </div>
         </div>
       </div>
@@ -169,62 +175,84 @@ export const Header: React.FC<HeaderProps> = ({
 
             {accountDropdownOpen && (
               <div
-                className="absolute right-0 mt-2 w-56 bg-white border border-gray-200 rounded-xl shadow-xl py-2 z-50 text-xs"
+                className="absolute right-0 mt-2 w-60 bg-white border border-gray-200 rounded-2xl shadow-xl py-2 z-50 text-xs"
                 onClick={() => setAccountDropdownOpen(false)}
               >
                 {currentUser ? (
                   <div className="px-4 py-2 border-b border-gray-100">
-                    <p className="font-semibold text-gray-900 truncate">{currentUser.displayName || 'Customer'}</p>
+                    <p className="font-bold text-gray-900 truncate">{currentUser.displayName || 'Customer'}</p>
                     <p className="text-gray-500 truncate text-[11px]">{currentUser.email}</p>
+                    <span className="inline-block mt-1 text-[10px] font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-full">
+                      ● Active Customer
+                    </span>
                   </div>
                 ) : (
-                  <div className="px-4 py-2 border-b border-gray-100">
-                    <p className="font-semibold text-gray-900">Welcome to Smart Choice</p>
-                    <button
-                      onClick={loginWithGoogle}
-                      className="mt-1.5 w-full bg-[#0A1931] text-white py-1.5 px-3 rounded-lg text-xs font-medium hover:bg-slate-800 transition"
-                    >
-                      Sign In with Google
-                    </button>
+                  <div className="px-4 py-2.5 border-b border-gray-100 space-y-2">
+                    <p className="font-bold text-gray-900">Welcome to Smart Choice</p>
+                    <p className="text-[11px] text-gray-500">Sign in to track orders & manage Save to Buy plans</p>
+                    <div className="space-y-1.5 pt-1">
+                      <button
+                        onClick={() => onOpenAuth ? onOpenAuth('signin') : loginWithGoogle()}
+                        className="w-full bg-[#D91E2A] text-white py-2 px-3 rounded-xl text-xs font-bold hover:bg-[#b81822] transition shadow-xs text-center block"
+                      >
+                        Sign In
+                      </button>
+                      <button
+                        onClick={() => onOpenAuth ? onOpenAuth('register') : loginWithGoogle()}
+                        className="w-full bg-gray-100 text-gray-800 py-1.5 px-3 rounded-xl text-xs font-bold hover:bg-gray-200 transition text-center block"
+                      >
+                        Create Account
+                      </button>
+                    </div>
                   </div>
                 )}
 
                 <button
                   onClick={() => onNavigate('customer-dashboard')}
-                  className="w-full text-left px-4 py-2 hover:bg-gray-50 text-gray-700 font-medium flex items-center gap-2"
+                  className="w-full text-left px-4 py-2.5 hover:bg-gray-50 text-gray-700 font-medium flex items-center gap-2"
                 >
                   <UserIcon className="w-3.5 h-3.5 text-gray-500" />
                   My Orders & Dashboard
                 </button>
                 <button
                   onClick={() => onNavigate('save-to-buy')}
-                  className="w-full text-left px-4 py-2 hover:bg-gray-50 text-gray-700 font-medium flex items-center gap-2"
+                  className="w-full text-left px-4 py-2.5 hover:bg-gray-50 text-gray-700 font-medium flex items-center gap-2"
                 >
                   <Clock className="w-3.5 h-3.5 text-emerald-600" />
                   My Save to Buy Plans
                 </button>
                 <button
                   onClick={() => onNavigate('track-order')}
-                  className="w-full text-left px-4 py-2 hover:bg-gray-50 text-gray-700 font-medium flex items-center gap-2"
+                  className="w-full text-left px-4 py-2.5 hover:bg-gray-50 text-gray-700 font-medium flex items-center gap-2"
                 >
                   <SearchCode className="w-3.5 h-3.5 text-blue-600" />
                   Track Order
                 </button>
-                <div className="border-t border-gray-100 my-1" />
-                <button
-                  onClick={() => onNavigate('admin')}
-                  className="w-full text-left px-4 py-2 hover:bg-amber-50 text-amber-700 font-semibold flex items-center gap-2"
-                >
-                  <ShieldCheck className="w-3.5 h-3.5" />
-                  Admin Dashboard
-                </button>
+
+                {/* Only render Admin Dashboard if user is authenticated with authorised admin email */}
+                {isAdmin && (
+                  <>
+                    <div className="border-t border-gray-100 my-1" />
+                    <button
+                      onClick={() => onNavigate('admin')}
+                      className="w-full text-left px-4 py-2.5 hover:bg-amber-50 text-amber-800 font-bold flex items-center gap-2"
+                    >
+                      <ShieldCheck className="w-3.5 h-3.5 text-amber-600" />
+                      Admin Dashboard
+                    </button>
+                  </>
+                )}
+
                 {currentUser && (
-                  <button
-                    onClick={logout}
-                    className="w-full text-left px-4 py-2 hover:bg-red-50 text-red-600 font-medium"
-                  >
-                    Log Out
-                  </button>
+                  <>
+                    <div className="border-t border-gray-100 my-1" />
+                    <button
+                      onClick={logout}
+                      className="w-full text-left px-4 py-2.5 hover:bg-red-50 text-red-600 font-bold"
+                    >
+                      Sign Out
+                    </button>
+                  </>
                 )}
               </div>
             )}
@@ -332,16 +360,56 @@ export const Header: React.FC<HeaderProps> = ({
               </div>
 
               <div className="border-t border-gray-200 my-4 pt-4 space-y-2 text-xs">
-                <button
-                  onClick={() => {
-                    onNavigate('admin');
-                    setMobileMenuOpen(false);
-                  }}
-                  className="w-full flex items-center justify-center gap-1.5 bg-[#0A1931] text-white py-2 rounded-lg font-bold"
-                >
-                  <ShieldCheck className="w-4 h-4 text-amber-400" />
-                  Admin Dashboard
-                </button>
+                {currentUser ? (
+                  <div className="p-3 bg-gray-50 rounded-xl space-y-2">
+                    <p className="font-bold text-gray-900 truncate">{currentUser.displayName || 'Customer'}</p>
+                    <p className="text-gray-500 text-[11px] truncate">{currentUser.email}</p>
+                    <button
+                      onClick={() => {
+                        logout();
+                        setMobileMenuOpen(false);
+                      }}
+                      className="w-full text-center text-red-600 font-bold py-1.5 bg-white border border-red-200 rounded-lg"
+                    >
+                      Sign Out
+                    </button>
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-2 gap-2">
+                    <button
+                      onClick={() => {
+                        setMobileMenuOpen(false);
+                        if (onOpenAuth) onOpenAuth('signin');
+                      }}
+                      className="w-full bg-[#D91E2A] text-white py-2 rounded-lg font-bold text-center"
+                    >
+                      Sign In
+                    </button>
+                    <button
+                      onClick={() => {
+                        setMobileMenuOpen(false);
+                        if (onOpenAuth) onOpenAuth('register');
+                      }}
+                      className="w-full bg-gray-100 text-gray-800 py-2 rounded-lg font-bold text-center"
+                    >
+                      Register
+                    </button>
+                  </div>
+                )}
+
+                {/* Only render Admin Dashboard if user is authenticated with authorised admin email */}
+                {isAdmin && (
+                  <button
+                    onClick={() => {
+                      onNavigate('admin');
+                      setMobileMenuOpen(false);
+                    }}
+                    className="w-full flex items-center justify-center gap-1.5 bg-[#0A1931] text-white py-2 rounded-lg font-bold"
+                  >
+                    <ShieldCheck className="w-4 h-4 text-amber-400" />
+                    Admin Dashboard
+                  </button>
+                )}
               </div>
             </div>
 

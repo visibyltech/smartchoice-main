@@ -59,7 +59,11 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onExitAdmin }) =
     deleteSlide,
     updateOrderStatus,
     verifyPaymentReceipt,
-    authorizeProductRelease
+    authorizeProductRelease,
+    isAdmin,
+    currentUser,
+    loginWithGoogle,
+    uploadProductImage
   } = useStore();
 
   const [activeTab, setActiveTab] = useState<
@@ -274,13 +278,25 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onExitAdmin }) =
     });
   };
 
-  // Handle local photo file upload to convert to Data URL for image slot
+  // State for uploading photo slot
+  const [uploadingSlot, setUploadingSlot] = useState<number | null>(null);
+
+  // Handle local photo file upload to convert to Data URL or upload to Cloudinary
   const handlePhotoFileUpload = (index: number, e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
+      setUploadingSlot(index);
       const reader = new FileReader();
-      reader.onloadend = () => {
-        updateImageUrl(index, reader.result as string);
+      reader.onloadend = async () => {
+        try {
+          const res = await uploadProductImage(reader.result as string);
+          updateImageUrl(index, res.url);
+        } catch (err) {
+          console.warn('Cloudinary direct upload fallback to local preview', err);
+          updateImageUrl(index, reader.result as string);
+        } finally {
+          setUploadingSlot(null);
+        }
       };
       reader.readAsDataURL(file);
     }
@@ -306,6 +322,37 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onExitAdmin }) =
       return { ...prev, specifications: updated };
     });
   };
+
+  // HARD SECURITY GATE: Block unauthorized customers from viewing or accessing dashboard
+  if (!isAdmin || currentUser?.email?.toLowerCase() !== 'smartchoiceglobalresourcesltd@gmail.com') {
+    return (
+      <div className="min-h-screen bg-gray-100 flex items-center justify-center p-4">
+        <div className="max-w-md w-full bg-white rounded-3xl p-8 border border-red-200 text-center space-y-4 shadow-xl">
+          <div className="w-16 h-16 bg-red-100 text-[#D91E2A] rounded-2xl flex items-center justify-center mx-auto">
+            <Lock className="w-8 h-8" />
+          </div>
+          <h2 className="text-xl font-black text-gray-900">Restricted Administrator Area</h2>
+          <p className="text-xs text-gray-600 leading-relaxed">
+            Access to this management portal is strictly restricted to the authorized administrator account (<strong>smartchoiceglobalresourcesltd@gmail.com</strong>).
+          </p>
+          <div className="pt-2 space-y-2">
+            <button
+              onClick={loginWithGoogle}
+              className="w-full bg-[#0A1931] hover:bg-slate-800 text-white font-bold py-3 rounded-xl text-xs transition shadow-md"
+            >
+              Sign In with Authorized Admin Account
+            </button>
+            <button
+              onClick={onExitAdmin}
+              className="w-full bg-gray-100 hover:bg-gray-200 text-gray-700 font-bold py-2.5 rounded-xl text-xs transition"
+            >
+              Return to Public Storefront
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-gray-100 flex flex-col">

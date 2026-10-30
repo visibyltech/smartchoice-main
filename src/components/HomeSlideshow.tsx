@@ -117,7 +117,7 @@ export const HomeSlideshow: React.FC<HomeSlideshowProps> = ({ slides, onNavigate
               onClick={() => onNavigate('save-to-buy')}
               className="bg-white/20 backdrop-blur-sm hover:bg-white/30 text-white text-xs sm:text-sm font-semibold px-4 py-2.5 rounded-full border border-white/30 transition"
             >
-              Save to Buy (3%-7%)
+              Save to Buy Plan
             </button>
           </div>
         </div>
