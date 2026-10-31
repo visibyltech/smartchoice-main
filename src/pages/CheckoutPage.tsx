@@ -15,7 +15,8 @@ import {
   AlertCircle,
   FileText,
   ShieldCheck,
-  CheckCircle2
+  CheckCircle2,
+  Loader2
 } from 'lucide-react';
 
 interface CheckoutPageProps {
@@ -217,13 +218,17 @@ export const CheckoutPage: React.FC<CheckoutPageProps> = ({
         onSuccess(plan, 'plan');
       } else if (paymentMethod === 'klump') {
         // Initiate real Klump checkout via backend endpoint
+        const origin = window.location.origin.replace(/\/$/, '');
+        const redirectUrl = `${origin}/track-order`;
+        const orderRef = 'KLUMP-' + Date.now();
+
         const klumpResponse = await fetch('/api/klump/checkout', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             amount: grandTotal,
             currency: 'NGN',
-            redirect_url: window.location.origin + '/klump-callback',
+            redirect_url: redirectUrl,
             customer: {
               email,
               phone,
@@ -237,24 +242,63 @@ export const CheckoutPage: React.FC<CheckoutPageProps> = ({
               unit_price: i.product.price,
               quantity: i.quantity
             })),
-            order_reference: 'KLUMP-' + Date.now()
+            order_reference: orderRef
           })
         });
 
-        const klumpData = await klumpResponse.json();
+        const rawText = await klumpResponse.text();
+        let klumpData: any;
+        try {
+          klumpData = JSON.parse(rawText);
+        } catch (parseErr) {
+          console.error('[KLUMP ERROR] Unparseable response received from endpoint:', rawText);
+          throw new Error(
+            `Unable to connect to Klump checkout (${klumpResponse.status}). The server returned an unexpected format. Please ensure Vercel has finished deploying the latest serverless API.`
+          );
+        }
 
         if (klumpData.configured === false) {
           setErrorMessage(
-            `Klump Configuration Notice: ${klumpData.message} Please select "Buy and Pay Now" or "Save to Buy" to proceed immediately.`
+            `Klump Notice: ${klumpData.message || 'Merchant keys are not configured.'} You can choose "Buy and Pay Now" via Moniepoint/Sterling Bank transfer or "Save to Buy" to complete your purchase immediately.`
           );
           setIsSubmitting(false);
           return;
         }
 
+        if (!klumpResponse.ok || klumpData.status === 'error') {
+          throw new Error(
+            klumpData.message || klumpData.error || 'Klump transaction initiation failed. Please check customer details and try again.'
+          );
+        }
+
         if (klumpData.data?.checkout_url) {
+          // Pre-record pending order so customer or admin can track it
+          await createOrder({
+            customerName: `${firstName} ${lastName}`.trim(),
+            customerEmail: email,
+            customerPhone: phone,
+            items: checkoutItems,
+            subtotal: itemsSubtotal,
+            deliveryFee,
+            totalAmount: grandTotal,
+            paymentMethod: 'klump',
+            fulfillmentType,
+            pickupShowroom: fulfillmentType === 'pickup' ? selectedShowroom : undefined,
+            deliveryAddress: fulfillmentType === 'delivery' ? {
+              state,
+              lga,
+              address,
+              phone,
+              notes: deliveryNotes
+            } : undefined,
+            notes: `Klump BNPL Session: ${orderRef}`
+          });
+
+          // Forward to Klump's hosted checkout
           window.location.href = klumpData.data.checkout_url;
+          return;
         } else {
-          // If in test mode or direct callback
+          // Fallback if checkout_url is not returned
           const order = await createOrder({
             customerName: `${firstName} ${lastName}`.trim(),
             customerEmail: email,
@@ -273,7 +317,7 @@ export const CheckoutPage: React.FC<CheckoutPageProps> = ({
               phone,
               notes: deliveryNotes
             } : undefined,
-            notes: 'Klump BNPL Transaction Initiated'
+            notes: `Klump Transaction Reference: ${orderRef}`
           });
           setIsSubmitting(false);
           onSuccess(order, 'order');
@@ -399,7 +443,7 @@ export const CheckoutPage: React.FC<CheckoutPageProps> = ({
               Pay Later (Klump)
             </h3>
             <p className="text-[9px] sm:text-xs text-gray-500 mt-0.5 line-clamp-2 hidden sm:block">
-              Klump BNPL 4 flexible payments
+              Klump BNPL flexible instalments
             </p>
           </button>
         </div>
@@ -792,19 +836,29 @@ export const CheckoutPage: React.FC<CheckoutPageProps> = ({
           {/* OPTION C: Klump BNPL */}
           {paymentMethod === 'klump' && (
             <div className="bg-white p-5 rounded-2xl border border-gray-200 shadow-xs space-y-4">
-              <h3 className="text-sm font-bold text-blue-900 uppercase tracking-wider flex items-center gap-2">
-                <Zap className="w-4 h-4 text-blue-600" />
-                <span>Klump Merchant Buy Now, Pay Later</span>
-              </h3>
+              <div className="flex items-center justify-between">
+                <h3 className="text-sm font-bold text-blue-900 uppercase tracking-wider flex items-center gap-2">
+                  <Zap className="w-4 h-4 text-blue-600" />
+                  <span>Buy Now, Pay Later with Klump</span>
+                </h3>
+                <span className="text-[10px] font-bold bg-blue-100 text-blue-800 px-2.5 py-0.5 rounded-full">
+                  Official Merchant Checkout
+                </span>
+              </div>
               <p className="text-xs text-gray-600 leading-relaxed">
-                Spread your payment across 4 equal installments with Klump. We initiate the financing session securely with Klump and verify your transaction callback.
+                Spread your electronics and appliance purchase with Klump Buy Now, Pay Later. Klump independently determines your personalized down payment, repayment duration, and installment schedule directly on its secure financing checkout.
               </p>
-              <div className="p-3.5 bg-blue-50 rounded-xl border border-blue-200 text-xs text-blue-900 space-y-1">
-                <p className="font-bold">Estimated 4 Klump Installments:</p>
-                <p className="text-sm font-extrabold text-blue-950">
-                  {formatNaira(Math.ceil(grandTotal / 4))} / installment
-                </p>
-                <p className="text-[11px] text-blue-800">First installment charged on order placement.</p>
+              <div className="p-3.5 bg-slate-50 rounded-xl border border-slate-200 text-xs text-slate-700 space-y-1.5">
+                <div className="flex items-center gap-2 font-bold text-slate-900">
+                  <ShieldCheck className="w-4 h-4 text-emerald-600 shrink-0" />
+                  <span>How Klump Checkout Operates:</span>
+                </div>
+                <ul className="list-disc list-inside text-[11px] space-y-1 text-slate-600 pl-1">
+                  <li>Clicking "Proceed to Klump BNPL" initiates your order session.</li>
+                  <li>You will be redirected to Klump's secure checkout portal.</li>
+                  <li>Klump verifies your eligibility and determines your exact repayment schedule.</li>
+                  <li>Your order is released upon verified payment confirmation from Klump.</li>
+                </ul>
               </div>
             </div>
           )}
@@ -886,10 +940,19 @@ export const CheckoutPage: React.FC<CheckoutPageProps> = ({
                   : paymentMethod === 'klump'
                   ? 'bg-blue-600 hover:bg-blue-700'
                   : 'bg-[#D91E2A] hover:bg-[#b81822]'
-              } disabled:opacity-50`}
+              } disabled:opacity-60 disabled:cursor-not-allowed`}
             >
               {isSubmitting ? (
-                <span>Processing Order...</span>
+                <>
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                  <span>
+                    {paymentMethod === 'klump'
+                      ? 'Connecting to Klump Payment Portal...'
+                      : paymentMethod === 'save_to_buy'
+                      ? 'Activating Save to Buy Plan...'
+                      : 'Submitting Order & Recording Transfer...'}
+                  </span>
+                </>
               ) : paymentMethod === 'save_to_buy' ? (
                 <span>Activate Save to Buy Plan</span>
               ) : paymentMethod === 'klump' ? (

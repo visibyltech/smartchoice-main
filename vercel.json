@@ -1,0 +1,21 @@
+{
+  "version": 2,
+  "rewrites": [
+    {
+      "source": "/api/klump/checkout",
+      "destination": "/api/klump/checkout"
+    },
+    {
+      "source": "/api/klump/verify/:reference",
+      "destination": "/api/klump/verify?reference=:reference"
+    },
+    {
+      "source": "/api/(.*)",
+      "destination": "/api/$1"
+    },
+    {
+      "source": "/(.*)",
+      "destination": "/index.html"
+    }
+  ]
+}

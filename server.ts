@@ -16,23 +16,22 @@ app.use(express.urlencoded({ extended: true, limit: '15mb' }));
 
 // Config status API
 app.get('/api/config', (_req, res) => {
-  const isCloudinarySet = Boolean(
-    process.env.CLOUDINARY_CLOUD_NAME &&
-    process.env.CLOUDINARY_API_KEY &&
-    process.env.CLOUDINARY_API_SECRET
-  );
+  const cloudinaryCloudName = process.env.CLOUDINARY_CLOUD_NAME || process.env.VITE_CLOUDINARY_CLOUD_NAME || '';
+  const cloudinaryApiKey = process.env.CLOUDINARY_API_KEY || process.env.VITE_CLOUDINARY_API_KEY || '';
+  const cloudinaryApiSecret = process.env.CLOUDINARY_API_SECRET || process.env.VITE_CLOUDINARY_API_SECRET || '';
 
-  const isKlumpSet = Boolean(
-    process.env.KLUMP_PUBLIC_KEY &&
-    process.env.KLUMP_SECRET_KEY
-  );
+  const klumpPublicKey = (process.env.KLUMP_PUBLIC_KEY || process.env.VITE_KLUMP_PUBLIC_KEY || '').trim();
+  const klumpSecretKey = (process.env.KLUMP_SECRET_KEY || process.env.VITE_KLUMP_SECRET_KEY || '').trim();
+
+  const isCloudinarySet = Boolean(cloudinaryCloudName && (cloudinaryApiKey || cloudinaryApiSecret));
+  const isKlumpSet = Boolean(klumpPublicKey && klumpSecretKey);
 
   res.json({
     cloudinaryConfigured: isCloudinarySet,
-    cloudinaryCloudName: process.env.CLOUDINARY_CLOUD_NAME || '',
-    cloudinaryApiKey: process.env.CLOUDINARY_API_KEY || '',
+    cloudinaryCloudName,
+    cloudinaryApiKey,
     klumpConfigured: isKlumpSet,
-    klumpPublicKey: process.env.KLUMP_PUBLIC_KEY || '',
+    klumpPublicKey,
     authorizedAdminEmail: 'smartchoiceglobalresourcesltd@gmail.com',
     storeBankAccounts: [
       {
@@ -172,8 +171,16 @@ app.post('/api/cloudinary/upload', async (req, res) => {
 // Klump BNPL Initiation Endpoint (Fixes JSON crash, checks test/live environment, safe parsing)
 app.post('/api/klump/checkout', async (req, res) => {
   const { amount, currency = 'NGN', redirect_url, customer, items, order_reference } = req.body;
-  const klumpPublicKey = (process.env.KLUMP_PUBLIC_KEY || '').trim();
-  const klumpSecretKey = (process.env.KLUMP_SECRET_KEY || '').trim();
+  const klumpPublicKey = (
+    process.env.KLUMP_PUBLIC_KEY ||
+    process.env.VITE_KLUMP_PUBLIC_KEY ||
+    ''
+  ).trim();
+  const klumpSecretKey = (
+    process.env.KLUMP_SECRET_KEY ||
+    process.env.VITE_KLUMP_SECRET_KEY ||
+    ''
+  ).trim();
 
   if (!klumpPublicKey || !klumpSecretKey) {
     return res.status(200).json({

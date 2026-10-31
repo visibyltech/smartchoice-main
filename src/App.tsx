@@ -57,6 +57,11 @@ function AppContent() {
   const [checkoutDirectProduct, setCheckoutDirectProduct] = useState<Product | undefined>(undefined);
   const [checkoutDirectQuantity, setCheckoutDirectQuantity] = useState<number>(1);
   const [checkoutPaymentMethod, setCheckoutPaymentMethod] = useState<PaymentMethod>('bank_transfer');
+  const [checkoutReturnTarget, setCheckoutReturnTarget] = useState<{
+    view: string;
+    product?: Product;
+    categorySlug?: string;
+  } | null>(null);
 
   // Completed order/plan state
   const [completedEntity, setCompletedEntity] = useState<any | null>(null);
@@ -101,9 +106,12 @@ function AppContent() {
 
   const handleCheckoutNow = (product: Product, quantity: number) => {
     setPreviousView(currentView);
+    setSelectedProduct(product);
     setCheckoutDirectProduct(product);
     setCheckoutDirectQuantity(quantity);
     setCheckoutPaymentMethod('bank_transfer');
+    setCheckoutReturnTarget({ view: 'product', product });
+
     if (!currentUser) {
       handleOpenAuth('signin', () => setCurrentView('checkout'));
     } else {
@@ -113,9 +121,15 @@ function AppContent() {
 
   const handleSaveToBuyDirect = (product: Product) => {
     setPreviousView(currentView);
+    setSelectedProduct(product);
     setCheckoutDirectProduct(product);
     setCheckoutDirectQuantity(1);
     setCheckoutPaymentMethod('save_to_buy');
+    setCheckoutReturnTarget({
+      view: currentView === 'save-to-buy' ? 'save-to-buy' : 'product',
+      product
+    });
+
     if (!currentUser) {
       handleOpenAuth('signin', () => setCurrentView('checkout'));
     } else {
@@ -128,10 +142,26 @@ function AppContent() {
     setCheckoutDirectProduct(undefined);
     setCheckoutDirectQuantity(1);
     setCheckoutPaymentMethod('bank_transfer');
+    setCheckoutReturnTarget({ view: 'cart' });
+
     if (!currentUser) {
       handleOpenAuth('signin', () => setCurrentView('checkout'));
     } else {
       setCurrentView('checkout');
+    }
+  };
+
+  const handleCancelCheckout = () => {
+    if (checkoutReturnTarget) {
+      if (checkoutReturnTarget.product) {
+        setSelectedProduct(checkoutReturnTarget.product);
+      }
+      setCurrentView(checkoutReturnTarget.view || 'cart');
+    } else if (checkoutDirectProduct) {
+      setSelectedProduct(checkoutDirectProduct);
+      setCurrentView('product');
+    } else {
+      setCurrentView('cart');
     }
   };
 
@@ -270,7 +300,7 @@ function AppContent() {
             directQuantity={checkoutDirectQuantity}
             initialPaymentMethod={checkoutPaymentMethod}
             onSuccess={handleCheckoutSuccess}
-            onCancel={() => setCurrentView(previousView || 'cart')}
+            onCancel={handleCancelCheckout}
             onOpenAuth={handleOpenAuth}
           />
         )}

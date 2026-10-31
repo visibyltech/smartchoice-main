@@ -194,9 +194,9 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   const [products, setProducts] = useState<Product[]>(() => {
     try {
       const saved = localStorage.getItem(PRODUCTS_STORAGE_KEY);
-      return saved ? JSON.parse(saved) : INITIAL_PRODUCTS;
+      return saved ? JSON.parse(saved) : [];
     } catch {
-      return INITIAL_PRODUCTS;
+      return [];
     }
   });
 
@@ -335,13 +335,11 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     const unsubProducts = onSnapshot(
       collection(db, 'products'),
       snapshot => {
-        if (!snapshot.empty) {
-          const remoteProds: Product[] = [];
-          snapshot.forEach(docSnap => {
-            remoteProds.push({ id: docSnap.id, ...(docSnap.data() as any) });
-          });
-          setProducts(remoteProds);
-        }
+        const remoteProds: Product[] = [];
+        snapshot.forEach(docSnap => {
+          remoteProds.push({ id: docSnap.id, ...(docSnap.data() as any) });
+        });
+        setProducts(remoteProds);
       },
       error => {
         console.warn('Firestore products sync note:', error.message);
