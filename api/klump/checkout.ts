@@ -50,9 +50,7 @@ export default async function handler(req: any, res: any) {
       klumpSecretKey.toLowerCase().includes('test') ||
       klumpSecretKey.startsWith('klp_sk_test');
 
-    const endpoint = isTestKey
-      ? 'https://staging-api.useklump.com/v1/transactions/initiate'
-      : 'https://api.useklump.com/v1/transactions/initiate';
+    const endpoint = 'https://api.useklump.com/v1/transactions/initiate';
 
     const origin = req.headers.origin || req.headers.referer || 'https://smartchoice-main.vercel.app';
     const cleanOrigin = origin.replace(/\/$/, '');
@@ -87,9 +85,7 @@ export default async function handler(req: any, res: any) {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'klump-secret-key': klumpSecretKey,
-        'Authorization': `Bearer ${klumpSecretKey}`,
-        'X-Klump-Public-Key': klumpPublicKey
+        'klump-secret-key': klumpSecretKey
       },
       body: JSON.stringify(payload)
     });

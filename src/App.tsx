@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { StoreProvider, useStore } from './context/StoreContext';
 import { Header } from './components/Header';
 import { Footer } from './components/Footer';
@@ -67,6 +67,96 @@ function AppContent() {
   const [completedEntity, setCompletedEntity] = useState<any | null>(null);
   const [completedType, setCompletedType] = useState<'order' | 'plan' | null>(null);
   const [copiedBank, setCopiedBank] = useState<string | null>(null);
+
+  // Keep the single-page app's navigation inside the store when users press
+  // the browser/device Back button. Each internal view is represented in
+  // browser history so Back restores the previous view and selected product.
+  const lastHistorySnapshot = useRef<string>('');
+
+  const makeHistorySnapshot = (
+    view: string,
+    product: Product | null,
+    categorySlug: string | undefined,
+    filter: string | undefined
+  ) => JSON.stringify({
+    smartChoiceStore: true,
+    view,
+    product,
+    categorySlug,
+    filter
+  });
+
+  useEffect(() => {
+    const initialSnapshot = makeHistorySnapshot(
+      currentView, selectedProduct, activeCategorySlug, activeFilter
+    );
+
+    // Keep a fallback entry at the storefront so Back at the first page
+    // does not unexpectedly navigate away from the store.
+    window.history.replaceState({ smartChoiceStore: 'fallback' }, '', window.location.href);
+    window.history.pushState({
+      smartChoiceStore: true,
+      view: currentView,
+      product: selectedProduct,
+      categorySlug: activeCategorySlug,
+      filter: activeFilter
+    }, '', window.location.href);
+    lastHistorySnapshot.current = initialSnapshot;
+
+    const restorePreviousView = (event: PopStateEvent) => {
+      const state = event.state;
+      if (state?.smartChoiceStore === true) {
+        lastHistorySnapshot.current = makeHistorySnapshot(
+          state.view || 'home',
+          state.product || null,
+          state.categorySlug,
+          state.filter
+        );
+        setCurrentView(state.view || 'home');
+        setSelectedProduct(state.product || null);
+        setActiveCategorySlug(state.categorySlug);
+        setActiveFilter(state.filter);
+        return;
+      }
+
+      // Reached the fallback entry: remain on the storefront rather than
+      // allowing Back to leave the SPA when there is no earlier store page.
+      const fallbackSnapshot = makeHistorySnapshot('home', null, undefined, undefined);
+      lastHistorySnapshot.current = fallbackSnapshot;
+      setCurrentView('home');
+      setSelectedProduct(null);
+      setActiveCategorySlug(undefined);
+      setActiveFilter(undefined);
+      window.history.pushState({
+        smartChoiceStore: true,
+        view: 'home',
+        product: null,
+        categorySlug: undefined,
+        filter: undefined
+      }, '', window.location.href);
+    };
+
+    window.addEventListener('popstate', restorePreviousView);
+    return () => window.removeEventListener('popstate', restorePreviousView);
+    // Initialise once; view changes are tracked by the effect below.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  useEffect(() => {
+    const snapshot = makeHistorySnapshot(
+      currentView, selectedProduct, activeCategorySlug, activeFilter
+    );
+    if (snapshot === lastHistorySnapshot.current) return;
+
+    window.history.pushState({
+      smartChoiceStore: true,
+      view: currentView,
+      product: selectedProduct,
+      categorySlug: activeCategorySlug,
+      filter: activeFilter
+    }, '', window.location.href);
+    lastHistorySnapshot.current = snapshot;
+  }, [currentView, selectedProduct, activeCategorySlug, activeFilter]);
 
   // Scroll to top on view changes
   useEffect(() => {
