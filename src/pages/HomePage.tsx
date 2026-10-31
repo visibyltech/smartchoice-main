@@ -96,31 +96,31 @@ export const HomePage: React.FC<HomePageProps> = ({
         </section>
       )}
 
-      {/* 4. Save to Buy Promotional Callout Card */}
-      <section className="bg-gradient-to-r from-[#0A1931] via-slate-900 to-emerald-950 rounded-2xl p-6 sm:p-8 text-white flex flex-col md:flex-row items-center justify-between gap-6 shadow-md border border-emerald-900/40">
-        <div className="space-y-2 max-w-xl">
-          <span className="text-[10px] sm:text-xs font-bold uppercase tracking-wider text-emerald-400 bg-emerald-950/70 border border-emerald-700/50 px-3 py-1 rounded-full">
+      {/* 4. Compact Save to Buy Callout */}
+      <section className="bg-gradient-to-r from-[#0A1931] via-slate-900 to-emerald-950 rounded-2xl p-3 sm:p-5 text-white flex flex-col sm:flex-row items-center justify-between gap-3 sm:gap-5 shadow-md border border-emerald-900/40">
+        <div className="space-y-1.5 min-w-0 flex-1">
+          <span className="inline-flex text-[9px] sm:text-[10px] font-bold uppercase tracking-wider text-emerald-400 bg-emerald-950/70 border border-emerald-700/50 px-2.5 py-0.5 rounded-full">
             Save to Buy Installment Program
           </span>
-          <h2 className="text-xl sm:text-2xl font-black tracking-tight text-white">
+          <h2 className="text-sm sm:text-lg font-black tracking-tight text-white leading-snug">
             Own High-End Electronics with Flexible Installment Savings
           </h2>
-          <p className="text-xs sm:text-sm text-gray-300">
-            No massive lump-sums needed. Choose your product, pick 1 to 4 months, and make steady weekly or monthly transfers with zero hidden bank fees.
+          <p className="text-[11px] sm:text-xs text-gray-300 leading-snug">
+            Choose your product, pick 1 to 4 months, and make steady weekly or monthly transfers.
           </p>
         </div>
 
-        <div className="flex flex-col sm:flex-row gap-3 shrink-0 w-full md:w-auto">
+        <div className="flex flex-row gap-2 shrink-0 w-full sm:w-auto">
           <button
             onClick={() => onNavigate('save-to-buy')}
-            className="bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs sm:text-sm py-3 px-6 rounded-full transition shadow-md flex items-center justify-center gap-2"
+            className="flex-1 sm:flex-none bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-[11px] sm:text-xs py-2 px-3 sm:px-4 rounded-full transition shadow-md flex items-center justify-center gap-1.5 whitespace-nowrap"
           >
-            <Clock className="w-4 h-4" />
-            <span>Calculate Your Plan</span>
+            <Clock className="w-3.5 h-3.5" />
+            <span>Calculate Plan</span>
           </button>
           <button
             onClick={() => onNavigate('shop')}
-            className="bg-white/10 hover:bg-white/20 text-white font-semibold text-xs sm:text-sm py-3 px-5 rounded-full border border-white/20 transition text-center"
+            className="flex-1 sm:flex-none bg-white/10 hover:bg-white/20 text-white font-semibold text-[11px] sm:text-xs py-2 px-3 sm:px-4 rounded-full border border-white/20 transition text-center whitespace-nowrap"
           >
             Browse Products
           </button>
