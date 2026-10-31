@@ -31,16 +31,14 @@ export default async function handler(req: any, res: any) {
     klumpSecretKey.toLowerCase().includes('test') ||
     klumpSecretKey.startsWith('klp_sk_test');
 
-  const endpoint = isTestKey
-    ? `https://staging-api.useklump.com/v1/transactions/verify/${encodeURIComponent(reference)}`
-    : `https://api.useklump.com/v1/transactions/verify/${encodeURIComponent(reference)}`;
+  const endpoint = `https://api.useklump.com/v1/transactions/${encodeURIComponent(reference)}/verify`;
 
   try {
     const response = await fetch(endpoint, {
       method: 'GET',
       headers: {
-        'klump-secret-key': klumpSecretKey,
-        'Authorization': `Bearer ${klumpSecretKey}`
+        'Content-Type': 'application/json',
+        'klump-secret-key': klumpSecretKey
       }
     });
 
