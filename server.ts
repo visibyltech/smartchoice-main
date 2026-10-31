@@ -277,9 +277,17 @@ app.post('/api/klump/checkout', async (req, res) => {
 });
 
 // Klump BNPL Verification Endpoint
-app.get('/api/klump/verify/:reference', async (req, res) => {
-  const { reference } = req.params;
-  const klumpSecretKey = (process.env.KLUMP_SECRET_KEY || '').trim();
+app.get(['/api/klump/verify/:reference', '/api/klump/verify'], async (req, res) => {
+  const reference = req.params.reference || (req.query.reference as string) || (req.query.ref as string);
+  const klumpSecretKey = (
+    process.env.KLUMP_SECRET_KEY ||
+    process.env.VITE_KLUMP_SECRET_KEY ||
+    ''
+  ).trim();
+
+  if (!reference) {
+    return res.status(400).json({ error: 'Missing transaction reference' });
+  }
 
   if (!klumpSecretKey) {
     return res.status(200).json({
