@@ -637,9 +637,9 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         customerEmail: currentUser.email || orderData.customerEmail,
         customerPhone: orderData.customerPhone,
         amount: orderData.totalAmount,
-        bankName: 'Moniepoint MFB / Sterling Bank PLC',
-        accountName: 'SMART CHOICE GLOBAL RESOURCES LTD',
-        accountNumber: '5240879532',
+        bankName: data.initialBankName || STORE_BANK_ACCOUNTS[0]?.bankName || 'Company Bank Account',
+        accountName: data.initialAccountName || STORE_BANK_ACCOUNTS[0]?.accountName || 'SMART CHOICE GLOBAL RESOURCES LTD',
+        accountNumber: data.initialAccountNumber || STORE_BANK_ACCOUNTS[0]?.accountNumber || '',
         receiptUrl: orderData.receiptUrl,
         receiptFileName: orderData.receiptFileName,
         status: 'pending',
@@ -766,6 +766,9 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     initialReceiptUrl?: string;
     initialReceiptFileName?: string;
     initialDepositAmount?: number;
+    initialBankName?: string;
+    initialAccountName?: string;
+    initialAccountNumber?: string;
   }): Promise<SaveToBuyPlan> => {
     if (!currentUser) {
       throw new Error('Authentication required to create a Save to Buy plan.');
@@ -776,14 +779,12 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     const now = new Date().toISOString();
 
     const calculation = calculateSaveToBuy(data.product.price, data.durationMonths, data.paymentFrequency);
+    // A submitted receipt is NOT a verified payment. Keep the plan unpaid
+    // until an administrator approves the matching payment record.
     const initialDeposit = data.initialDepositAmount || 0;
-    const balance = calculation.totalPayable - initialDeposit;
-
+    const balance = calculation.totalPayable;
     const schedule = [...calculation.schedule];
     if (initialDeposit > 0 && schedule.length > 0) {
-      schedule[0].amountPaid = initialDeposit;
-      schedule[0].status = 'paid';
-      schedule[0].paymentDate = now;
       schedule[0].receiptUrl = data.initialReceiptUrl;
       schedule[0].receiptFileName = data.initialReceiptFileName;
       schedule[0].receiptStatus = 'pending';
@@ -804,7 +805,7 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       interestRatePercent: calculation.interestRatePercent,
       interestAmount: calculation.interestAmount,
       totalPayable: calculation.totalPayable,
-      amountPaid: initialDeposit,
+      amountPaid: 0,
       balance,
       paymentFrequency: data.paymentFrequency,
       installmentAmount: calculation.installmentAmount,
@@ -813,7 +814,7 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       fulfillmentType: data.fulfillmentType,
       pickupShowroom: data.pickupShowroom,
       deliveryAddress: data.deliveryAddress,
-      status: initialDeposit > 0 ? 'active' : 'awaiting_first_payment',
+      status: 'awaiting_first_payment',
       productReleased: false,
       createdAt: now,
       updatedAt: now
@@ -955,8 +956,8 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
             if (item.installmentNumber === receipt.installmentNumber) {
               return {
                 ...item,
-                amountPaid: verified ? item.amountDue : 0,
-                status: verified ? ('paid' as const) : ('due' as const),
+                amountPaid: verified ? item.amountPaid + receipt.amount : item.amountPaid,
+                status: verified && item.amountPaid + receipt.amount >= item.amountDue ? ('paid' as const) : ('due' as const),
                 receiptStatus: verified ? ('verified' as const) : ('rejected' as const)
               };
             }
