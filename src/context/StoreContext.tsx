@@ -128,6 +128,9 @@ interface StoreContextType {
     initialReceiptUrl?: string;
     initialReceiptFileName?: string;
     initialDepositAmount?: number;
+    initialBankName?: string;
+    initialAccountName?: string;
+    initialAccountNumber?: string;
   }) => Promise<SaveToBuyPlan>;
   submitInstallmentPayment: (
     planId: string,
