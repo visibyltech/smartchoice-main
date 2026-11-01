@@ -433,15 +433,15 @@ function AppContent() {
                 {completedType === 'plan' ? `Plan Ref: ${completedEntity.planRef}` : `Order Ref: ${completedEntity.orderRef}`}
               </span>
               <h1 className="text-2xl sm:text-3xl font-black text-gray-900">
-                {completedType === 'plan' ? 'Save to Buy Plan Activated!' : 'Order Placed Successfully!'}
+                {completedType === 'plan' ? 'Save to Buy Request Submitted' : 'Order Placed Successfully!'}
               </h1>
               <p className="text-xs sm:text-sm text-gray-600 max-w-md mx-auto">
-                Thank you for choosing Smart Choice Electronics Group. A confirmation has been generated for customer <strong>{completedEntity.customerName}</strong>.
+                {completedType === 'plan' ? 'Your first transfer receipt has been submitted and is awaiting administrator verification. Your Save to Buy balance will update only after the payment is approved.' : <>Thank you for choosing Smart Choice Electronics Group. A confirmation has been generated for customer <strong>{completedEntity.customerName}</strong>.</>}
               </p>
             </div>
 
-            {/* Bank details card if bank transfer */}
-            <div className="bg-white p-5 rounded-2xl border border-gray-200 text-left space-y-3 shadow-xs">
+            {/* Bank details are shown for ordinary orders only. Save to Buy customers have already transferred and uploaded a receipt at checkout. */}
+            {completedType !== 'plan' && <div className="bg-white p-5 rounded-2xl border border-gray-200 text-left space-y-3 shadow-xs">
               <h3 className="font-bold text-xs uppercase text-gray-700 tracking-wider">
                 Smart Choice Corporate Bank Accounts
               </h3>
@@ -467,7 +467,7 @@ function AppContent() {
                   </div>
                 ))}
               </div>
-            </div>
+            </div>}
 
             <div className="flex flex-col sm:flex-row gap-3 justify-center pt-2">
               {completedType === 'plan' ? (
