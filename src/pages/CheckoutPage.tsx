@@ -99,6 +99,7 @@ export const CheckoutPage: React.FC<CheckoutPageProps> = ({
   const [receiptFile, setReceiptFile] = useState<File | null>(null);
   const [receiptPreview, setReceiptPreview] = useState<string | null>(null);
   const [copiedBankIndex, setCopiedBankIndex] = useState<number | null>(null);
+  const [selectedSaveToBuyBankIndex, setSelectedSaveToBuyBankIndex] = useState(0);
 
   // Submission state
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -209,7 +210,7 @@ export const CheckoutPage: React.FC<CheckoutPageProps> = ({
           throw new Error(receiptUploadData.error || receiptUploadData.message || 'The receipt could not be uploaded. Please try again.');
         }
 
-        const selectedAccount = storeBankAccounts[0];
+        const selectedAccount = storeBankAccounts[selectedSaveToBuyBankIndex] || storeBankAccounts[0];
         const plan = await createSaveToBuyPlan({
           customerName: `${firstName} ${lastName}`.trim(),
           customerEmail: email,
@@ -831,8 +832,12 @@ export const CheckoutPage: React.FC<CheckoutPageProps> = ({
                 <h4 className="text-xs font-extrabold uppercase tracking-wide text-[#0A1931]">Transfer your first installment to Smart Choice</h4>
                 <p className="text-xs text-gray-600">Transfer <strong className="text-emerald-800">{formatNaira(saveToBuyCalc.installmentAmount)}</strong> to one of the official company accounts below. Your payment will remain pending until an administrator verifies the receipt.</p>
                 {storeBankAccounts.map((bank, idx) => (
-                  <div key={idx} className="p-3 rounded-xl border border-emerald-200 bg-emerald-50/50 flex items-center justify-between gap-3">
+                  <div key={idx} className={`p-3 rounded-xl border flex items-center justify-between gap-3 ${selectedSaveToBuyBankIndex === idx ? 'border-emerald-600 bg-emerald-50 ring-1 ring-emerald-200' : 'border-gray-200 bg-white'}`}>
                     <div className="min-w-0">
+                      <label className="mb-1 flex items-center gap-2 text-[11px] font-bold text-emerald-800">
+                        <input type="radio" name="save-to-buy-bank" checked={selectedSaveToBuyBankIndex === idx} onChange={() => setSelectedSaveToBuyBankIndex(idx)} />
+                        Use this account
+                      </label>
                       <p className="text-xs font-extrabold text-[#0A1931]">{bank.bankName}</p>
                       <p className="text-[11px] text-gray-600">Account Name: <strong>{bank.accountName}</strong></p>
                       <p className="font-mono text-sm font-black tracking-wider text-emerald-800">{bank.accountNumber}</p>
