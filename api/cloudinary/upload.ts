@@ -21,13 +21,13 @@ export default async function handler(req: any, res: any) {
   const { file, folder = 'smartchoice/products' } = req.body || {};
 
   if (!file) {
-    return res.status(400).json({ error: 'No image file provided' });
+    return res.status(400).json({ error: 'No file provided' });
   }
 
   if (!cloudName || !apiKey || !apiSecret) {
     return res.status(200).json({
       configured: false,
-      message: 'Cloudinary environment variables not set. Image kept in local buffer.',
+      message: 'Cloudinary environment variables are not configured.',
       url: file
     });
   }
@@ -44,7 +44,7 @@ export default async function handler(req: any, res: any) {
     formData.append('signature', signature);
     formData.append('folder', folder);
 
-    const response = await fetch(`https://api.cloudinary.com/v1_1/${cloudName}/image/upload`, {
+    const response = await fetch(`https://api.cloudinary.com/v1_1/${cloudName}/auto/upload`, {
       method: 'POST',
       body: formData
     });
@@ -78,7 +78,7 @@ export default async function handler(req: any, res: any) {
   } catch (err: any) {
     console.error('Server Cloudinary upload error:', err);
     return res.status(500).json({
-      error: 'Failed to upload image to Cloudinary',
+      error: 'Failed to upload file to Cloudinary',
       message: err.message
     });
   }
