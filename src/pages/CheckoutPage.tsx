@@ -194,6 +194,22 @@ export const CheckoutPage: React.FC<CheckoutPageProps> = ({
           throw new Error('Please select a product for Save to Buy.');
         }
 
+        if (!receiptPreview || !receiptFile) {
+          throw new Error('Please upload your first installment transfer receipt.');
+        }
+
+        // Store receipt files in Cloudinary, not as large base64 strings in Firestore.
+        const receiptUploadResponse = await fetch('/api/cloudinary/upload', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ file: receiptPreview, folder: 'smartchoice/payment-receipts' })
+        });
+        const receiptUploadData = await receiptUploadResponse.json();
+        if (!receiptUploadResponse.ok || !receiptUploadData.configured || !receiptUploadData.url) {
+          throw new Error(receiptUploadData.error || receiptUploadData.message || 'The receipt could not be uploaded. Please try again.');
+        }
+
+        const selectedAccount = storeBankAccounts[0];
         const plan = await createSaveToBuyPlan({
           customerName: `${firstName} ${lastName}`.trim(),
           customerEmail: email,
@@ -210,12 +226,12 @@ export const CheckoutPage: React.FC<CheckoutPageProps> = ({
             phone,
             notes: deliveryNotes
           } : undefined,
-          initialReceiptUrl: receiptPreview || undefined,
-          initialReceiptFileName: receiptFile?.name || undefined,
+          initialReceiptUrl: receiptUploadData.url,
+          initialReceiptFileName: receiptFile.name,
           initialDepositAmount: saveToBuyCalc?.installmentAmount || 0,
-          initialBankName: storeBankAccounts[0]?.bankName || '',
-          initialAccountName: storeBankAccounts[0]?.accountName || '',
-          initialAccountNumber: storeBankAccounts[0]?.accountNumber || ''
+          initialBankName: selectedAccount?.bankName || '',
+          initialAccountName: selectedAccount?.accountName || '',
+          initialAccountNumber: selectedAccount?.accountNumber || ''
         });
 
         setIsSubmitting(false);
