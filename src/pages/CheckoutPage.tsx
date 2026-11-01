@@ -122,15 +122,11 @@ export const CheckoutPage: React.FC<CheckoutPageProps> = ({
     const file = e.target.files?.[0];
     if (file) {
       setReceiptFile(file);
-      if (file.type.startsWith('image/')) {
-        const reader = new FileReader();
-        reader.onloadend = () => {
-          setReceiptPreview(reader.result as string);
-        };
-        reader.readAsDataURL(file);
-      } else {
-        setReceiptPreview(null);
-      }
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setReceiptPreview(reader.result as string);
+      };
+      reader.readAsDataURL(file);
     }
   };
 
@@ -152,6 +148,11 @@ export const CheckoutPage: React.FC<CheckoutPageProps> = ({
 
     if (fulfillmentType === 'delivery' && (!address || !lga || !state)) {
       setErrorMessage('Please provide your complete delivery street address, LGA, and State.');
+      return;
+    }
+
+    if (paymentMethod === 'save_to_buy' && !receiptFile) {
+      setErrorMessage('Please transfer your first Save to Buy installment to one of the company accounts below and upload the transfer receipt before submitting.');
       return;
     }
 
@@ -211,7 +212,10 @@ export const CheckoutPage: React.FC<CheckoutPageProps> = ({
           } : undefined,
           initialReceiptUrl: receiptPreview || undefined,
           initialReceiptFileName: receiptFile?.name || undefined,
-          initialDepositAmount: receiptFile ? (saveToBuyCalc?.installmentAmount || 0) : 0
+          initialDepositAmount: saveToBuyCalc?.installmentAmount || 0,
+          initialBankName: storeBankAccounts[0]?.bankName || '',
+          initialAccountName: storeBankAccounts[0]?.accountName || '',
+          initialAccountNumber: storeBankAccounts[0]?.accountNumber || ''
         });
 
         setIsSubmitting(false);
@@ -806,10 +810,28 @@ export const CheckoutPage: React.FC<CheckoutPageProps> = ({
                 </div>
               </div>
 
+              {/* Company bank accounts for the first Save to Buy installment */}
+              <div className="pt-3 border-t border-gray-100 space-y-3">
+                <h4 className="text-xs font-extrabold uppercase tracking-wide text-[#0A1931]">Transfer your first installment to Smart Choice</h4>
+                <p className="text-xs text-gray-600">Transfer <strong className="text-emerald-800">{formatNaira(saveToBuyCalc.installmentAmount)}</strong> to one of the official company accounts below. Your payment will remain pending until an administrator verifies the receipt.</p>
+                {storeBankAccounts.map((bank, idx) => (
+                  <div key={idx} className="p-3 rounded-xl border border-emerald-200 bg-emerald-50/50 flex items-center justify-between gap-3">
+                    <div className="min-w-0">
+                      <p className="text-xs font-extrabold text-[#0A1931]">{bank.bankName}</p>
+                      <p className="text-[11px] text-gray-600">Account Name: <strong>{bank.accountName}</strong></p>
+                      <p className="font-mono text-sm font-black tracking-wider text-emerald-800">{bank.accountNumber}</p>
+                    </div>
+                    <button type="button" onClick={() => handleCopyAccount(bank.accountNumber, idx)} className="shrink-0 rounded-lg border border-emerald-300 bg-white px-3 py-2 text-[11px] font-bold text-gray-800">
+                      {copiedBankIndex === idx ? <><Check className="inline w-3.5 h-3.5 text-emerald-600" /> Copied</> : <><Copy className="inline w-3.5 h-3.5" /> Copy</>}
+                    </button>
+                  </div>
+                ))}
+              </div>
+
               {/* First Deposit Receipt Upload */}
               <div className="pt-2 border-t border-gray-100 space-y-2">
                 <label className="block text-xs font-bold text-gray-800">
-                  Upload First Installment Receipt (Optional on Plan Setup)
+                  Upload First Installment Transfer Receipt (Required)
                 </label>
                 <div className="border-2 border-dashed border-gray-300 hover:border-emerald-500 rounded-xl p-3 text-center cursor-pointer transition">
                   <input
@@ -822,10 +844,11 @@ export const CheckoutPage: React.FC<CheckoutPageProps> = ({
                   <label htmlFor="save-receipt-upload" className="cursor-pointer flex flex-col items-center">
                     <Upload className="w-5 h-5 text-gray-400 mb-1" />
                     <span className="text-xs font-semibold text-gray-700">
-                      {receiptFile ? receiptFile.name : 'Upload initial deposit receipt'}
+                      {receiptFile ? receiptFile.name : 'Upload transfer receipt'}
                     </span>
                   </label>
                 </div>
+                {receiptFile && <p className="text-[11px] text-emerald-700 font-semibold">Receipt selected: {receiptFile.name}</p>}
                 <p className="text-[11px] text-amber-800 font-medium">
                   <strong>Important Rule:</strong> The product will not be released until every required payment has been completed and verified by the admin.
                 </p>
@@ -949,12 +972,12 @@ export const CheckoutPage: React.FC<CheckoutPageProps> = ({
                     {paymentMethod === 'klump'
                       ? 'Connecting to Klump Payment Portal...'
                       : paymentMethod === 'save_to_buy'
-                      ? 'Activating Save to Buy Plan...'
+                      ? 'Submitting receipt for admin verification...'
                       : 'Submitting Order & Recording Transfer...'}
                   </span>
                 </>
               ) : paymentMethod === 'save_to_buy' ? (
-                <span>Activate Save to Buy Plan</span>
+                <span>Submit Save to Buy Plan & Receipt</span>
               ) : paymentMethod === 'klump' ? (
                 <span>Proceed to Klump BNPL</span>
               ) : (
