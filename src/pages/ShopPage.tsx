@@ -58,7 +58,14 @@ export const ShopPage: React.FC<ShopPageProps> = ({
       // Category filter
       if (selectedCategorySlug !== 'all') {
         const cat = categories.find(c => c.slug === selectedCategorySlug);
-        if (cat && product.categoryId !== cat.id) return false;
+        if (cat) {
+          const normalizeCategory = (value?: string) => (value || '').toLowerCase().trim().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
+          const matchesCategory =
+            product.categoryId === cat.id ||
+            normalizeCategory(product.categoryName) === normalizeCategory(cat.name) ||
+            normalizeCategory(product.categoryName) === normalizeCategory(cat.slug);
+          if (!matchesCategory) return false;
+        }
       }
 
       // Brand filter
