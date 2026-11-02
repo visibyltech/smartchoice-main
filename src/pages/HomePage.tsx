@@ -130,7 +130,13 @@ export const HomePage: React.FC<HomePageProps> = ({
       {/* 5. EVERY CATEGORY HAS ITS OWN INDEPENDENT HORIZONTAL PRODUCT SLIDER (Mandatory requirement) */}
       <section className="space-y-4">
         {categories.map(category => {
-          const categoryProducts = products.filter(p => p.categoryId === category.id);
+          const normalizeCategory = (value?: string) => (value || '').toLowerCase().trim().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
+          // Keep legacy products visible if a category was recreated and its Firestore ID changed.
+          const categoryProducts = products.filter(p =>
+            p.categoryId === category.id ||
+            normalizeCategory(p.categoryName) === normalizeCategory(category.name) ||
+            normalizeCategory(p.categoryName) === normalizeCategory(category.slug)
+          );
           return (
             <CategorySlider
               key={category.id}
