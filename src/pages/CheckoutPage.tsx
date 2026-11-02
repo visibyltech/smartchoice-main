@@ -87,8 +87,22 @@ export const CheckoutPage: React.FC<CheckoutPageProps> = ({
   const [address, setAddress] = useState('');
   const [deliveryNotes, setDeliveryNotes] = useState('');
 
-  // Delivery fee calculation
-  const deliveryFee = fulfillmentType === 'delivery' ? 5000 : 0;
+  // Oversized or delicate items require a delivery arrangement by WhatsApp.
+  const whatsappOnlyItems = checkoutItems.filter(({ product }) => {
+    const details = [product.name, product.categoryName, product.description].join(' ').toLowerCase();
+    return /\b(tv|television|refrigerator|fridge|freezer|deep freezer|washing machine|air conditioner|split unit|standing ac|gas cooker|generator|perkins|fragile|delicate|glass|large|oversized)\b/.test(details);
+  });
+  const requiresWhatsAppDelivery = whatsappOnlyItems.length > 0;
+  const whatsappNumber = (showrooms.find(s => s.whatsapp)?.whatsapp || '2348165896158').replace(/\D/g, '');
+  const whatsappMessage = encodeURIComponent(
+    'Hello Smart Choice, I would like to arrange delivery for: ' +
+    whatsappOnlyItems.map(({ product, quantity }) => product.name + ' (Qty: ' + quantity + ')').join(', ') +
+    '. Please confirm delivery availability and charges. My location is in Port Harcourt.'
+  );
+  const whatsappDeliveryUrl = 'https://wa.me/' + whatsappNumber + '?text=' + whatsappMessage;
+
+  // Standard delivery is limited to Port Harcourt at a flat ₦7,000 fee.
+  const deliveryFee = fulfillmentType === 'delivery' && !requiresWhatsAppDelivery ? 7000 : 0;
   const grandTotal = itemsSubtotal + deliveryFee;
 
   // Save to Buy state
@@ -147,8 +161,21 @@ export const CheckoutPage: React.FC<CheckoutPageProps> = ({
       return;
     }
 
+    if (fulfillmentType === 'delivery' && requiresWhatsAppDelivery) {
+      setErrorMessage('This order contains oversized or delicate product(s). Please contact us on WhatsApp to confirm delivery arrangements before placing the order.');
+      return;
+    }
+
     if (fulfillmentType === 'delivery' && (!address || !lga || !state)) {
-      setErrorMessage('Please provide your complete delivery street address, LGA, and State.');
+      setErrorMessage('Please provide your complete Port Harcourt delivery street address and LGA.');
+      return;
+    }
+    if (fulfillmentType === 'delivery' && !/rivers/i.test(state)) {
+      setErrorMessage('Home delivery is currently available only within Port Harcourt, Rivers State. Please choose showroom pickup if you are outside Port Harcourt.');
+      return;
+    }
+    if (fulfillmentType === 'delivery' && !/(port harcourt|obio.?akpor)/i.test(lga)) {
+      setErrorMessage('Standard home delivery is available only within Port Harcourt. Please enter Port Harcourt City or Obio-Akpor as your LGA, or choose showroom pickup.');
       return;
     }
 
@@ -506,9 +533,29 @@ export const CheckoutPage: React.FC<CheckoutPageProps> = ({
               >
                 <Truck className="w-5 h-5 mb-1 text-blue-600" />
                 <span className="text-xs sm:text-sm">Home Delivery</span>
-                <span className="text-[10px] text-gray-500 font-bold mt-0.5">+₦5,000 Port Harcourt</span>
+                <span className="text-[10px] text-gray-500 font-bold mt-0.5">+₦7,000 Port Harcourt</span>
               </button>
             </div>
+
+            {fulfillmentType === 'delivery' && requiresWhatsAppDelivery && (
+              <div className="p-4 bg-amber-50 border border-amber-200 rounded-xl space-y-2">
+                <div className="flex items-start gap-2">
+                  <AlertCircle className="w-5 h-5 text-amber-700 shrink-0 mt-0.5" />
+                  <div>
+                    <h4 className="text-xs font-extrabold text-amber-950">WhatsApp Delivery Confirmation Required</h4>
+                    <p className="text-[11px] leading-relaxed text-amber-900 mt-1">
+                      Your order includes an oversized or delicate item. Delivery must be arranged directly with our team. Please message us on WhatsApp to confirm availability and the delivery charge. The standard ₦7,000 fee does not apply to these items.
+                    </p>
+                    <ul className="mt-2 text-[11px] text-amber-950 list-disc list-inside">
+                      {whatsappOnlyItems.map(({ product }) => <li key={product.id}>{product.name}</li>)}
+                    </ul>
+                    <a href={whatsappDeliveryUrl} target="_blank" rel="noopener noreferrer" className="inline-flex items-center justify-center mt-3 px-4 py-2 rounded-lg bg-green-600 hover:bg-green-700 text-white text-xs font-bold transition">
+                      Confirm Delivery on WhatsApp
+                    </a>
+                  </div>
+                </div>
+              </div>
+            )}
 
             {/* If Pickup: Select Preferred Showroom (No address requested, ₦0 fee) */}
             {fulfillmentType === 'pickup' && (
@@ -616,8 +663,8 @@ export const CheckoutPage: React.FC<CheckoutPageProps> = ({
                     <input
                       type="text"
                       required
-                      value={state}
-                      onChange={e => setState(e.target.value)}
+                      value="Rivers State"
+                      readOnly
                       className="w-full border border-gray-300 rounded-lg p-2.5 bg-gray-50 focus:border-[#D91E2A] outline-none"
                     />
                   </div>
@@ -977,7 +1024,7 @@ export const CheckoutPage: React.FC<CheckoutPageProps> = ({
             {/* Submit Button */}
             <button
               type="submit"
-              disabled={isSubmitting}
+              disabled={isSubmitting || (fulfillmentType === 'delivery' && requiresWhatsAppDelivery)}
               className={`w-full font-bold py-3.5 px-4 rounded-xl text-white text-sm transition shadow-md flex items-center justify-center gap-2 ${
                 paymentMethod === 'save_to_buy'
                   ? 'bg-emerald-700 hover:bg-emerald-800'
