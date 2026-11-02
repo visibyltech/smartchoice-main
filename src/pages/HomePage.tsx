@@ -130,7 +130,14 @@ export const HomePage: React.FC<HomePageProps> = ({
       {/* 5. EVERY CATEGORY HAS ITS OWN INDEPENDENT HORIZONTAL PRODUCT SLIDER (Mandatory requirement) */}
       <section className="space-y-4">
         {categories.map(category => {
-          const categoryProducts = products.filter(p => p.categoryId === category.id);
+          const normalizeCategory = (value?: string) => (value || '').toLowerCase().trim().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
+          // Match by ID first, then by the stored category name/slug so category
+          // recreation or ID changes never orphan previously uploaded products.
+          const categoryProducts = products.filter(p =>
+            p.categoryId === category.id ||
+            normalizeCategory(p.categoryName) === normalizeCategory(category.name) ||
+            normalizeCategory(p.categoryName) === normalizeCategory(category.slug)
+          );
           return (
             <CategorySlider
               key={category.id}
@@ -142,6 +149,35 @@ export const HomePage: React.FC<HomePageProps> = ({
             />
           );
         })}
+      </section>
+
+      {/* Always show the complete catalogue independently of category records. */}
+      {products.length > 0 && (
+        <section className="space-y-4">
+          <div className="flex items-center justify-between gap-3">
+            <div>
+              <h2 className="text-lg sm:text-2xl font-black text-[#0A1931]">All Products</h2>
+              <p className="text-xs text-gray-500">{products.length} products available</p>
+            </div>
+            <button
+              onClick={() => onNavigate('shop')}
+              className="text-xs sm:text-sm font-bold text-[#D91E2A] hover:underline flex items-center gap-1"
+            >
+              View All <ArrowRight className="w-4 h-4" />
+            </button>
+          </div>
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3 sm:gap-4">
+            {products.map(product => (
+              <ProductCard
+                key={product.id}
+                product={product}
+                onSelect={onSelectProduct}
+                onSaveToBuyDirect={onSaveToBuyDirect}
+              />
+            ))}
+          </div>
+        </section>
+      )}
       </section>
 
       {/* 6. Why Shop with Smart Choice Electronics Group */}
