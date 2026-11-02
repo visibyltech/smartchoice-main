@@ -178,7 +178,6 @@ export const HomePage: React.FC<HomePageProps> = ({
           </div>
         </section>
       )}
-      </section>
 
       {/* 6. Why Shop with Smart Choice Electronics Group */}
       <section className="bg-white rounded-3xl border border-gray-200 p-6 sm:p-10 shadow-2xs space-y-6">
